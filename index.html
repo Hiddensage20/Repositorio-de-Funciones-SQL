@@ -182,14 +182,22 @@
         const validateFunctionWithAI = async (name, description, syntax) => {
             const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const prompt = `Evalúa si la siguiente información es una descripción de una sintaxis de SQL válida y coherente. No es un código completo, sino un patrón de sintaxis. Responde SÍ o NO, sin explicaciones.
+            const prompt = `Evalúa si el siguiente nombre, descripción y sintaxis se corresponden con una función de SQL. Si no es así, explica brevemente por qué y ofrece una posible corrección.
+
             Nombre: ${name}
             Descripción: ${description}
-            Sintaxis: ${syntax}`;
+            Sintaxis: ${syntax}
+
+            Ejemplo de respuesta si es válido:
+            SÍ
+
+            Ejemplo de respuesta si no es válido:
+            NO. La sintaxis "SELECT Celect FROM table" no es válida. Tal vez quisiste decir "SELECT * FROM table" o "SELECT column_name FROM table" para un uso más genérico.
+            `;
 
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: "Tu única tarea es responder SÍ o NO para indicar si el contenido se relaciona con SQL." }] },
+                systemInstruction: { parts: [{ text: "Eres un experto en SQL y tu única tarea es validar el contenido y, si es necesario, ofrecer una corrección útil." }] },
             };
 
             try {
@@ -200,10 +208,15 @@
                 });
                 const result = await response.json();
                 const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                return text.trim().toUpperCase() === 'SÍ';
+                
+                if (text.trim().toUpperCase().startsWith('SÍ')) {
+                    return { valid: true, message: '¡Validación exitosa!' };
+                } else {
+                    return { valid: false, message: text.trim() };
+                }
             } catch (error) {
                 console.error("Error al validar con IA:", error);
-                return false; // Fail safe
+                return { valid: false, message: "No se pudo validar con la IA. Intenta de nuevo." };
             }
         };
 
@@ -229,10 +242,10 @@
             button.textContent = 'Validando...';
             button.disabled = true;
 
-            const isValid = await validateFunctionWithAI(name, description, syntax);
+            const validationResult = await validateFunctionWithAI(name, description, syntax);
 
-            if (!isValid) {
-                showMessage('Contenido no válido. No parece una función de SQL. Por favor, revisa la información.', 'error');
+            if (!validationResult.valid) {
+                showMessage(`Contenido no válido. ${validationResult.message}`, 'error');
                 button.textContent = originalButtonText;
                 button.disabled = false;
                 return;
