@@ -12,7 +12,15 @@
 
         // Global variables provided by the environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const firebaseConfig = {
+  apiKey: "AIzaSyCeD4TAPK2GuW01J5WQl7vJjmJWC671f-Y",
+  authDomain: "codigograbado.firebaseapp.com",
+  projectId: "codigograbado",
+  storageBucket: "codigograbado.firebasestorage.app",
+  messagingSenderId: "346430888474",
+  appId: "1:346430888474:web:cbaa641fbf4fc62bca4fa3",
+  measurementId: "G-626THBS8CJ"
+};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let db, auth, userId, loggedInUser = null;
