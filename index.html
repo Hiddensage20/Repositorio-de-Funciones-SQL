@@ -27,7 +27,6 @@
             try {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                auth = getAuth(app);
                 
                 // Sign in with the provided custom token or anonymously
                 if (initialAuthToken) {
@@ -179,10 +178,11 @@
         };
 
         // Function to validate content with AI
-        const validateFunctionWithAI = async (name, description, syntax) => {
+        const validateFunctionWithAI = async (syntax) => {
+            // IMPORTANTE: Reemplaza "TU_API_KEY_AQUÍ" con tu clave de API de Gemini
             const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const prompt = `Eres un experto en SQL. Evalúa si la siguiente sintaxis es una consulta o función de SQL válida. Si no es así, explica brevemente por qué.
+            const prompt = `Eres un experto en SQL. Evalúa si la siguiente sintaxis es una consulta de SQL válida. Si no es válida, describe en no más de 10 palabras cuál es el error. No ofrezcas correcciones ni explicaciones adicionales.
 
             Sintaxis: ${syntax}
 
@@ -190,11 +190,12 @@
             SÍ
 
             Ejemplo de respuesta si no es válido:
-            NO. El código tiene un error de sintaxis en la cláusula WHERE.`;
+            NO. Falta el nombre de la tabla en la cláusula FROM.
+            `;
 
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: "Eres un experto en SQL y tu única tarea es validar el contenido y, si es necesario, ofrecer una corrección útil." }] },
+                systemInstruction: { parts: [{ text: "Eres un experto en SQL. Responde con 'SÍ' o 'NO' seguido de un mensaje breve sobre el error." }] },
             };
 
             try {
@@ -209,11 +210,11 @@
                 if (text.trim().toUpperCase().startsWith('SÍ')) {
                     return { valid: true, message: '¡Validación exitosa!' };
                 } else {
-                    return { valid: false, message: text.trim() };
+                    return { valid: false, message: text.trim().replace('NO. ', '') };
                 }
             } catch (error) {
                 console.error("Error al validar con IA:", error);
-                return { valid: false, message: "No se pudo validar con la IA. Intenta de nuevo." };
+                return { valid: false, message: "No se pudo validar con la IA. Es posible que la API no esté disponible o que haya un problema con la clave." };
             }
         };
 
@@ -239,10 +240,10 @@
             button.textContent = 'Validando...';
             button.disabled = true;
 
-            const validationResult = await validateFunctionWithAI(name, description, syntax);
+            const validationResult = await validateFunctionWithAI(syntax);
 
             if (!validationResult.valid) {
-                showMessage(`Contenido no válido. ${validationResult.message}`, 'error');
+                showMessage(`Error al agregar la información. Hay un error en la sintaxis: ${validationResult.message}`, 'error');
                 button.textContent = originalButtonText;
                 button.disabled = false;
                 return;
@@ -333,6 +334,7 @@
             const resultsDiv = document.getElementById('recommendationResults');
             resultsDiv.innerHTML = '<p class="text-indigo-500 mt-2 text-center">Generando consulta... ✨</p>';
             
+            // IMPORTANTE: Reemplaza con tu clave de API de Gemini
             const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
@@ -378,6 +380,7 @@
 
             correctionResult.innerHTML = '<p class="text-indigo-500 mt-4 text-center">Corrigiendo sintaxis... ✨</p>';
 
+            // IMPORTANTE: Reemplaza con tu clave de API de Gemini
             const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
             const prompt = `Corrige y mejora el siguiente fragmento de código SQL. Si el código es sintácticamente correcto, optimízalo si es posible. Solo devuelve el código SQL corregido o mejorado, sin explicaciones adicionales: ${errorArea}`;
@@ -527,6 +530,7 @@
 
             welcomeMessageDiv.textContent = 'Generando mensaje de bienvenida...';
 
+            // IMPORTANTE: Reemplaza con tu clave de API de Gemini
             const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
             const prompt = `Genera un mensaje de bienvenida para un administrador de una base de datos de funciones de SQL. El nombre del usuario es "${username}". Su última sesión fue hace "${timeAgo}". El mensaje debe ser breve, motivador y debe recordarle revisar el panel de notificaciones para estar al día con los cambios de los demás administradores. Incluye el siguiente resumen de su actividad: "${actionsSummary}". Termina el mensaje con la frase "¡Buen código!".`;
