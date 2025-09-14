@@ -52,7 +52,7 @@
         // Function to show custom messages in the UI
         const showMessage = (message, type = 'info') => {
             const statusMessage = document.getElementById('statusMessage');
-            statusMessage.textContent = message;
+            statusMessage.innerHTML = message;
             statusMessage.className = 'mt-4 text-center p-3 rounded-lg font-medium';
             if (type === 'error') {
                 statusMessage.classList.add('bg-rose-200', 'text-rose-800');
@@ -182,7 +182,7 @@
         const validateFunctionWithAI = async (name, description, syntax) => {
             const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const prompt = `Evalúa si el siguiente nombre, descripción y sintaxis se corresponden con una función de SQL. Si no es así, explica brevemente por qué y ofrece una posible corrección.
+            const prompt = `Eres un experto en SQL. Evalúa si el siguiente nombre, descripción y sintaxis se corresponden con una función de SQL. Si no es así, explica brevemente por qué y ofrece una posible corrección. El formato de la sintaxis puede ser una plantilla, por lo que no es necesario que sea un código ejecutable.
 
             Nombre: ${name}
             Descripción: ${description}
@@ -681,7 +681,7 @@
                     <label for="correctionKey" class="block text-sm font-medium text-gray-700 mb-1">Clave de corrección:</label>
                     <input type="password" id="correctionKey" class="w-full p-2 border border-gray-400 rounded-md focus:ring-purple-500 focus:border-purple-500">
                 </div>
-                <button id="fixButton" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200">
+                <button id="fixButton" type="button" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200">
                     Corregir Sintaxis ✨
                 </button>
                 <div id="correctionResult"></div>
