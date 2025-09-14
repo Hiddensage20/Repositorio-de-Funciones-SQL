@@ -182,7 +182,7 @@
         const validateFunctionWithAI = async (name, description, syntax) => {
             const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const prompt = `Evalúa si la siguiente información describe una función de SQL válida y coherente. Responde SÍ o NO, sin explicaciones.
+            const prompt = `Evalúa si la siguiente información, que es un patrón de sintaxis para una función de SQL, es válida. No es un código completo, sino una plantilla. Responde SÍ o NO, sin explicaciones.
             Nombre: ${name}
             Descripción: ${description}
             Sintaxis: ${syntax}`;
