@@ -1,714 +1,682 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SQL Functions Repository</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, getDocs, setDoc, getDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Functions Repository</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, getDocs, setDoc, getDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global variables provided by the environment
-        const firebaseConfig = {
-  apiKey: "AIzaSyCeD4TAPK2GuW01J5WQl7vJjmJWC671f-Y",
-  authDomain: "codigograbado.firebaseapp.com",
-  projectId: "codigograbado",
-  storageBucket: "codigograbado.firebasestorage.app",
-  messagingSenderId: "346430888474",
-  appId: "1:346430888474:web:cbaa641fbf4fc62bca4fa3",
-  measurementId: "G-626THBS8CJ"
-};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // Global variables provided by the environment
+        const firebaseConfig = {
+            apiKey: "AIzaSyCeD4TAPK2GuW01J5WQl7vJjmJWC671f-Y",
+            authDomain: "codigograbado.firebaseapp.com",
+            projectId: "codigograbado",
+            storageBucket: "codigograbado.firebasestorage.app",
+            messagingSenderId: "346430888474",
+            appId: "1:346430888474:web:cbaa641fbf4fc62bca4fa3",
+            measurementId: "G-626THBS8CJ"
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        let db, auth, userId, loggedInUser = null;
-        let functionsList = [];
-        let editingId = null;
+        let db, auth, userId, loggedInUser = null;
+        let functionsList = [];
+        let editingId = null;
 
-        const SUPER_ADMIN_USERNAME = 'GravisLudio';
-        const SUPER_ADMIN_KEY = 'DT10VazC;#9i';
-        const DB_PATH = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ/sql_functions`;
-        const ADMIN_PATH = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ/admins`;
-        const LOGS_PATH = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ/logs`;
-        const NOTIFICATIONS_PATH = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ/notifications`;
+        const SUPER_ADMIN_USERNAME = 'GravisLudio';
+        const SUPER_ADMIN_KEY = 'DT10VazC;#9i';
+        // NEW: Centralized database paths for clarity and correctness
+        const DB_ROOT = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ`;
+        const FUNCTIONS_PATH = `${DB_ROOT}/sql_functions`;
+        const ADMINS_PATH = `${DB_ROOT}/admins`;
+        const LOGS_PATH = `${DB_ROOT}/logs`;
+        const NOTIFICATIONS_PATH = `${DB_ROOT}/notifications`;
 
-        // Function to initialize Firebase
-        const initFirebase = async () => {
-            try {
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                
-                // Sign in with the provided custom token or anonymously
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                
-                userId = auth.currentUser.uid;
-                document.getElementById('userIdDisplay').textContent = `Tu ID de usuario: ${userId}`;
-                
-                console.log("Firebase inicializado y autenticación exitosa.");
-                // setLogLevel('Debug'); // Uncomment for debugging
-                fetchFunctions();
-                fetchNotifications();
-            } catch (error) {
-                console.error("Error al inicializar Firebase o autenticar:", error);
-                showMessage("Error: No se pudo conectar a la base de datos.", 'error');
-            }
-        };
+        // Function to initialize Firebase
+        const initFirebase = async () => {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                userId = auth.currentUser.uid;
+                document.getElementById('userIdDisplay').textContent = `Tu ID de usuario: ${userId}`;
+                
+                console.log("Firebase inicializado y autenticación exitosa.");
+                fetchFunctions();
+                fetchNotifications();
+            } catch (error) {
+                console.error("Error al inicializar Firebase o autenticar:", error);
+                showMessage("Error: No se pudo conectar a la base de datos.", 'error');
+            }
+        };
 
-        // Function to show custom messages in the UI
-        const showMessage = (message, type = 'info') => {
-            const statusMessage = document.getElementById('statusMessage');
-            statusMessage.innerHTML = message;
-            statusMessage.className = 'mt-4 text-center p-3 rounded-lg font-medium';
-            if (type === 'error') {
-                statusMessage.classList.add('bg-rose-200', 'text-rose-800');
-            } else if (type === 'success') {
-                statusMessage.classList.add('bg-emerald-200', 'text-emerald-800');
-            } else {
-                statusMessage.classList.add('bg-indigo-200', 'text-indigo-800');
-            }
-        };
+        const showMessage = (message, type = 'info') => {
+            const statusMessage = document.getElementById('statusMessage');
+            statusMessage.innerHTML = message;
+            statusMessage.className = 'mt-4 text-center p-3 rounded-lg font-medium';
+            if (type === 'error') {
+                statusMessage.classList.add('bg-rose-200', 'text-rose-800');
+            } else if (type === 'success') {
+                statusMessage.classList.add('bg-emerald-200', 'text-emerald-800');
+            } else {
+                statusMessage.classList.add('bg-indigo-200', 'text-indigo-800');
+            }
+        };
 
-        // Function to fetch functions from Firestore
-        const fetchFunctions = () => {
-            if (!db) {
-                console.error("Firestore no está inicializado.");
-                return;
-            }
-            const q = collection(db, DB_PATH);
-            onSnapshot(q, (snapshot) => {
-                functionsList = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                displayFunctions();
-            }, (error) => {
-                console.error("Error al obtener funciones:", error);
-                showMessage("Error al cargar las funciones.", 'error');
-            });
-        };
+        const fetchFunctions = () => {
+            if (!db) {
+                console.error("Firestore no está inicializado.");
+                return;
+            }
+            const q = collection(db, FUNCTIONS_PATH);
+            onSnapshot(q, (snapshot) => {
+                functionsList = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                displayFunctions();
+            }, (error) => {
+                console.error("Error al obtener funciones:", error);
+                showMessage("Error al cargar las funciones.", 'error');
+            });
+        };
 
-        // Function to fetch notifications from Firestore
-        const fetchNotifications = () => {
-            if (!db || !userId) {
-                console.error("Firestore no está inicializado o el ID de usuario no está disponible.");
-                return;
-            }
-            const q = collection(db, `${DB_PATH}/users/${userId}/notifications`);
-            onSnapshot(q, (snapshot) => {
-                const notifications = snapshot.docs.map(doc => doc.data());
-                displayNotifications(notifications);
-            }, (error) => {
-                console.error("Error al obtener notificaciones:", error);
-            });
-        };
+        const fetchNotifications = () => {
+            if (!db || !userId) {
+                console.error("Firestore no está inicializado o el ID de usuario no está disponible.");
+                return;
+            }
+            const q = collection(db, `${NOTIFICATIONS_PATH}/users/${userId}/notifications`);
+            onSnapshot(q, (snapshot) => {
+                const notifications = snapshot.docs.map(doc => doc.data());
+                displayNotifications(notifications);
+            }, (error) => {
+                console.error("Error al obtener notificaciones:", error);
+            });
+        };
 
-        // Function to add a notification to Firestore
-        const addNotification = async (func) => {
-            if (!userId) {
-                console.error("ID de usuario no disponible, no se puede agregar la notificación.");
-                return;
-            }
-            try {
-                await addDoc(collection(db, `${DB_PATH}/users/${userId}/notifications`), {
-                    message: `Se ha agregado una nueva función: "${func.name}" con la descripción: "${func.description}".`,
-                    createdAt: new Date()
-                });
-            } catch (e) {
-                console.error("Error al agregar notificación:", e);
-            }
-        };
+        const addNotification = async (func) => {
+            if (!userId) {
+                console.error("ID de usuario no disponible, no se puede agregar la notificación.");
+                return;
+            }
+            try {
+                await addDoc(collection(db, `${NOTIFICATIONS_PATH}/users/${userId}/notifications`), {
+                    message: `Se ha agregado una nueva función: "${func.name}" con la descripción: "${func.description}".`,
+                    createdAt: new Date()
+                });
+            } catch (e) {
+                console.error("Error al agregar notificación:", e);
+            }
+        };
 
-        // Function to display notifications in the UI
-        const displayNotifications = (notifications) => {
-            const notificationsList = document.getElementById('notificationsList');
-            if (!notificationsList) return;
-            
-            notificationsList.innerHTML = '';
-            notifications.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
-            
-            notifications.forEach(notif => {
-                const notifItem = document.createElement('div');
-                notifItem.className = 'bg-indigo-200 p-3 rounded-md mb-2';
-                notifItem.innerHTML = `<p class="text-indigo-800 text-sm">${notif.message}</p>
-                                       <span class="text-xs text-indigo-600">${new Date(notif.createdAt.toDate()).toLocaleString()}</span>`;
-                notificationsList.appendChild(notifItem);
-            });
-        };
+        const displayNotifications = (notifications) => {
+            const notificationsList = document.getElementById('notificationsList');
+            if (!notificationsList) return;
+            
+            notificationsList.innerHTML = '';
+            notifications.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
+            
+            notifications.forEach(notif => {
+                const notifItem = document.createElement('div');
+                notifItem.className = 'bg-indigo-200 p-3 rounded-md mb-2';
+                notifItem.innerHTML = `<p class="text-indigo-800 text-sm">${notif.message}</p>
+                                         <span class="text-xs text-indigo-600">${new Date(notif.createdAt.toDate()).toLocaleString()}</span>`;
+                notificationsList.appendChild(notifItem);
+            });
+        };
 
-        // Function to display functions in the UI
-        const displayFunctions = (functionsToDisplay = functionsList) => {
-            const listElement = document.getElementById('functionsList');
-            const searchList = document.getElementById('searchFunctionsList');
-            listElement.innerHTML = '';
-            searchList.innerHTML = '';
+        const displayFunctions = (functionsToDisplay = functionsList) => {
+            const listElement = document.getElementById('functionsList');
+            const searchList = document.getElementById('searchFunctionsList');
+            listElement.innerHTML = '';
+            searchList.innerHTML = '';
 
-            const isUserLoggedIn = document.getElementById('addFunctionSection').classList.contains('hidden') === false;
+            const isUserLoggedIn = document.getElementById('addFunctionSection').classList.contains('hidden') === false;
 
-            functionsToDisplay.forEach(func => {
-                // Main list
-                const funcItem = document.createElement('div');
-                funcItem.className = 'bg-gray-200 p-4 rounded-lg shadow-md mb-4';
-                funcItem.innerHTML = `
-                    <h3 class="text-xl font-bold text-gray-800">${func.name}</h3>
-                    <p class="text-sm text-gray-600 mb-2"><strong>Descripción:</strong> ${func.description}</p>
-                    <div class="bg-white p-3 rounded-lg border border-gray-400">
-                        <pre class="whitespace-pre-wrap font-mono text-gray-800"><code>${func.syntax}</code></pre>
-                    </div>
-                    <div class="mt-4 flex space-x-2 ${isUserLoggedIn ? '' : 'hidden'}">
-                        <button class="edit-btn bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200 text-sm" data-id="${func.id}">Editar</button>
-                        <button class="delete-btn bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200 text-sm" data-id="${func.id}">Eliminar</button>
-                    </div>
-                `;
-                listElement.appendChild(funcItem);
+            functionsToDisplay.forEach(func => {
+                const funcItem = document.createElement('div');
+                funcItem.className = 'bg-gray-200 p-4 rounded-lg shadow-md mb-4';
+                funcItem.innerHTML = `
+                    <h3 class="text-xl font-bold text-gray-800">${func.name}</h3>
+                    <p class="text-sm text-gray-600 mb-2"><strong>Descripción:</strong> ${func.description}</p>
+                    <div class="bg-white p-3 rounded-lg border border-gray-400">
+                        <pre class="whitespace-pre-wrap font-mono text-gray-800"><code>${func.syntax}</code></pre>
+                    </div>
+                    <div class="mt-4 flex space-x-2 ${isUserLoggedIn ? '' : 'hidden'}">
+                        <button class="edit-btn bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200 text-sm" data-id="${func.id}">Editar</button>
+                        <button class="delete-btn bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200 text-sm" data-id="${func.id}">Eliminar</button>
+                    </div>
+                `;
+                listElement.appendChild(funcItem);
 
-                // Add event listeners for the new buttons
-                if (isUserLoggedIn) {
-                    funcItem.querySelector('.edit-btn').addEventListener('click', () => editFunction(func));
-                    funcItem.querySelector('.delete-btn').addEventListener('click', () => deleteFunction(func.id));
-                }
+                if (isUserLoggedIn) {
+                    funcItem.querySelector('.edit-btn').addEventListener('click', () => editFunction(func));
+                    funcItem.querySelector('.delete-btn').addEventListener('click', () => deleteFunction(func.id));
+                }
 
-                // Search list for quick links
-                const searchItem = document.createElement('li');
-                searchItem.className = 'hover:bg-gray-300 cursor-pointer p-2 rounded-md';
-                searchItem.textContent = func.name;
-                searchItem.onclick = () => {
-                    document.getElementById('descriptionSearch').value = func.description;
-                    // No need to click the button here, let the user decide.
-                };
-                searchList.appendChild(searchItem);
-            });
-        };
+                const searchItem = document.createElement('li');
+                searchItem.className = 'hover:bg-gray-300 cursor-pointer p-2 rounded-md';
+                searchItem.textContent = func.name;
+                searchItem.onclick = () => {
+                    document.getElementById('descriptionSearch').value = func.description;
+                };
+                searchList.appendChild(searchItem);
+            });
+        };
 
-        // Function to validate content with AI
-        const validateFunctionWithAI = async (syntax) => {
-            // IMPORTANTE: Reemplaza "TU_API_KEY_AQUÍ" con tu clave de API de Gemini
-            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const prompt = `Eres un experto en SQL. Evalúa si la siguiente sintaxis es una consulta de SQL válida. Si no es válida, describe en no más de 10 palabras cuál es el error. No ofrezcas correcciones ni explicaciones adicionales.
+        const validateFunctionWithAI = async (syntax) => {
+            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const prompt = `Eres un experto en SQL. Evalúa si la siguiente sintaxis es una consulta de SQL válida. Si no es válida, describe en no más de 10 palabras cuál es el error. No ofrezcas correcciones ni explicaciones adicionales. Sintaxis: ${syntax}`;
 
-            Sintaxis: ${syntax}
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: "Eres un experto en SQL. Responde con 'SÍ' o 'NO' seguido de un mensaje breve sobre el error." }] },
+            };
 
-            Ejemplo de respuesta si es válido:
-            SÍ
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                
+                if (text.trim().toUpperCase().startsWith('SÍ')) {
+                    return { valid: true, message: '¡Validación exitosa!' };
+                } else {
+                    return { valid: false, message: text.trim().replace('NO. ', '') };
+                }
+            } catch (error) {
+                console.error("Error al validar con IA:", error);
+                return { valid: false, message: "No se pudo validar con la IA. Es posible que la API no esté disponible o que haya un problema con la clave." };
+            }
+        };
 
-            Ejemplo de respuesta si no es válido:
-            NO. Falta el nombre de la tabla en la cláusula FROM.
-            `;
+        const addOrUpdateFunction = async (event) => {
+            event.preventDefault();
+            const name = document.getElementById('funcName').value;
+            const description = document.getElementById('funcDescription').value;
+            const syntax = document.getElementById('funcSyntax').value;
+            const button = document.getElementById('addFunctionButton');
+            const originalButtonText = button.textContent;
+            
+            if (!loggedInUser) {
+                showMessage('Debes iniciar sesión para realizar esta acción.', 'error');
+                return;
+            }
 
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: "Eres un experto en SQL. Responde con 'SÍ' o 'NO' seguido de un mensaje breve sobre el error." }] },
-            };
+            if (!name || !description || !syntax) {
+                showMessage('Todos los campos son obligatorios.', 'error');
+                return;
+            }
 
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                
-                if (text.trim().toUpperCase().startsWith('SÍ')) {
-                    return { valid: true, message: '¡Validación exitosa!' };
-                } else {
-                    return { valid: false, message: text.trim().replace('NO. ', '') };
-                }
-            } catch (error) {
-                console.error("Error al validar con IA:", error);
-                return { valid: false, message: "No se pudo validar con la IA. Es posible que la API no esté disponible o que haya un problema con la clave." };
-            }
-        };
+            button.textContent = 'Validando...';
+            button.disabled = true;
 
-        // Function to add or update a new SQL function
-        const addOrUpdateFunction = async (event) => {
-            event.preventDefault();
-            const name = document.getElementById('funcName').value;
-            const description = document.getElementById('funcDescription').value;
-            const syntax = document.getElementById('funcSyntax').value;
-            const button = document.getElementById('addFunctionButton');
-            const originalButtonText = button.textContent;
-            
-            if (!loggedInUser) {
-                showMessage('Debes iniciar sesión para realizar esta acción.', 'error');
-                return;
-            }
+            const validationResult = await validateFunctionWithAI(syntax);
 
-            if (!name || !description || !syntax) {
-                showMessage('Todos los campos son obligatorios.', 'error');
-                return;
-            }
+            if (!validationResult.valid) {
+                showMessage(`Error al agregar la información. Hay un error en la sintaxis: ${validationResult.message}`, 'error');
+                button.textContent = originalButtonText;
+                button.disabled = false;
+                return;
+            }
 
-            button.textContent = 'Validando...';
-            button.disabled = true;
+            try {
+                if (editingId) {
+                    await updateDoc(doc(db, FUNCTIONS_PATH, editingId), {
+                        name,
+                        description,
+                        syntax,
+                    });
+                    await addDoc(collection(db, LOGS_PATH), {
+                        action: "edited",
+                        user: loggedInUser.username,
+                        functionName: name,
+                        timestamp: new Date()
+                    });
+                    showMessage(`Función actualizada con éxito.`, 'success');
+                    editingId = null;
+                    document.getElementById('addFunctionButton').textContent = 'Guardar Función';
+                } else {
+                    await addDoc(collection(db, FUNCTIONS_PATH), {
+                        name,
+                        description,
+                        syntax,
+                        createdAt: new Date()
+                    });
+                    await addDoc(collection(db, LOGS_PATH), {
+                        action: "added",
+                        user: loggedInUser.username,
+                        functionName: name,
+                        timestamp: new Date()
+                    });
+                    showMessage(`Función agregada con éxito.`, 'success');
+                    await addNotification({name, description, syntax});
+                }
+                document.getElementById('addFunctionForm').reset();
+            } catch (e) {
+                console.error("Error al agregar/actualizar documento: ", e);
+                showMessage("Error al guardar la función. Verifica la consola de Firebase.", 'error');
+            } finally {
+                button.textContent = originalButtonText;
+                button.disabled = false;
+            }
+        };
 
-            const validationResult = await validateFunctionWithAI(syntax);
+        const editFunction = (func) => {
+            editingId = func.id;
+            document.getElementById('funcName').value = func.name;
+            document.getElementById('funcDescription').value = func.description;
+            document.getElementById('funcSyntax').value = func.syntax;
+            document.getElementById('addFunctionButton').textContent = 'Actualizar Función';
+            document.getElementById('addFunctionSection').scroll-into-view({ behavior: 'smooth' });
+        };
 
-            if (!validationResult.valid) {
-                showMessage(`Error al agregar la información. Hay un error en la sintaxis: ${validationResult.message}`, 'error');
-                button.textContent = originalButtonText;
-                button.disabled = false;
-                return;
-            }
+        const deleteFunction = async (id) => {
+            if (!loggedInUser) {
+                showMessage('Debes iniciar sesión para realizar esta acción.', 'error');
+                return;
+            }
+            if (window.confirm('¿Estás seguro de que quieres eliminar esta función? Esta acción no se puede deshacer.')) {
+                try {
+                    const docRef = doc(db, FUNCTIONS_PATH, id);
+                    const funcSnap = await getDoc(docRef);
+                    if (funcSnap.exists()) {
+                        await deleteDoc(docRef);
+                        await addDoc(collection(db, LOGS_PATH), {
+                            action: "deleted",
+                            user: loggedInUser.username,
+                            functionName: funcSnap.data().name,
+                            timestamp: new Date()
+                        });
+                        showMessage('Función eliminada con éxito.', 'success');
+                    }
+                } catch (e) {
+                    console.error("Error al eliminar documento: ", e);
+                    showMessage("Error al eliminar la función.", 'error');
+                }
+            }
+        };
 
-            try {
-                if (editingId) {
-                    await updateDoc(doc(db, `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ/sql_functions`, editingId), {
-                        name,
-                        description,
-                        syntax,
-                    });
-                    await addDoc(collection(db, `/artifacts/${appId}/public/data/logs`), {
-                        action: "edited",
-                        user: loggedInUser.username,
-                        functionName: name,
-                        timestamp: new Date()
-                    });
-                    showMessage(`Función actualizada con éxito.`, 'success');
-                    editingId = null;
-                    document.getElementById('addFunctionButton').textContent = 'Guardar Función';
-                } else {
-                    await addDoc(collection(db, `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ/sql_functions`), {
-                        name,
-                        description,
-                        syntax,
-                        createdAt: new Date()
-                    });
-                    await addDoc(collection(db, `/artifacts/${appId}/public/data/logs`), {
-                        action: "added",
-                        user: loggedInUser.username,
-                        functionName: name,
-                        timestamp: new Date()
-                    });
-                    showMessage(`Función agregada con éxito.`, 'success');
-                    await addNotification({name, description, syntax});
-                }
-                document.getElementById('addFunctionForm').reset();
-            } catch (e) {
-                console.error("Error al agregar/actualizar documento: ", e);
-                showMessage("Error al guardar la función.", 'error');
-            } finally {
-                button.textContent = originalButtonText;
-                button.disabled = false;
-            }
-        };
+        const generateSQLQuery = async () => {
+            const description = document.getElementById('descriptionSearch').value;
+            const resultsDiv = document.getElementById('recommendationResults');
+            resultsDiv.innerHTML = '<p class="text-indigo-500 mt-2 text-center">Generando consulta... ✨</p>';
+            
+            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
-        // Function to populate the form for editing
-        const editFunction = (func) => {
-            editingId = func.id;
-            document.getElementById('funcName').value = func.name;
-            document.getElementById('funcDescription').value = func.description;
-            document.getElementById('funcSyntax').value = func.syntax;
-            document.getElementById('addFunctionButton').textContent = 'Actualizar Función';
-            document.getElementById('addFunctionSection').scroll-into-view({ behavior: 'smooth' });
-        };
+            const payload = {
+                contents: [{ parts: [{ text: `Eres un experto en SQL. Genera una consulta SQL para la siguiente descripción. Solo devuelve el código SQL, sin explicaciones. Descripción: ${description}` }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: { parts: [{ text: "Genera código SQL preciso y conciso." }] },
+            };
 
-        // Function to delete a function
-        const deleteFunction = async (id) => {
-            if (!loggedInUser) {
-                showMessage('Debes iniciar sesión para realizar esta acción.', 'error');
-                return;
-            }
-            if (window.confirm('¿Estás seguro de que quieres eliminar esta función? Esta acción no se puede deshacer.')) {
-                try {
-                    const docRef = doc(db, `/artifacts/${appId}/public/data/sql_functions`, id);
-                    const funcSnap = await getDoc(docRef);
-                    if (funcSnap.exists()) {
-                        await deleteDoc(docRef);
-                        await addDoc(collection(db, `/artifacts/${appId}/public/data/logs`), {
-                            action: "deleted",
-                            user: loggedInUser.username,
-                            functionName: funcSnap.data().name,
-                            timestamp: new Date()
-                        });
-                        showMessage('Función eliminada con éxito.', 'success');
-                    }
-                } catch (e) {
-                    console.error("Error al eliminar documento: ", e);
-                    showMessage("Error al eliminar la función.", 'error');
-                }
-        };
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || 'No se pudo generar la consulta. Intenta una descripción diferente.';
+                resultsDiv.innerHTML = `<div class="bg-indigo-100 p-4 rounded-md mt-4">
+                    <p class="font-bold text-indigo-700 mb-2">Consulta generada ✨:</p>
+                    <pre class="bg-white p-2 rounded-md border border-indigo-300 whitespace-pre-wrap text-indigo-800"><code>${text}</code></pre>
+                </div>`;
+            } catch (error) {
+                console.error("Error al generar la consulta:", error);
+                resultsDiv.innerHTML = '<p class="text-rose-500 mt-2">Error al generar la consulta. Vuelve a intentarlo.</p>';
+            }
+        };
 
-        // Function to generate SQL query using Gemini API
-        const generateSQLQuery = async () => {
-            const description = document.getElementById('descriptionSearch').value;
-            const resultsDiv = document.getElementById('recommendationResults');
-            resultsDiv.innerHTML = '<p class="text-indigo-500 mt-2 text-center">Generando consulta... ✨</p>';
-            
-            // IMPORTANTE: Reemplaza con tu clave de API de Gemini
-            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        const fixSyntaxWithAI = async () => {
+            const correctionKey = document.getElementById('correctionKey').value;
+            const errorArea = document.getElementById('errorInput').value;
+            const correctionResult = document.getElementById('correctionResult');
 
-            const payload = {
-                contents: [{ parts: [{ text: `Eres un experto en SQL. Genera una consulta SQL para la siguiente descripción. Solo devuelve el código SQL, sin explicaciones. Descripción: ${description}` }] }],
-                tools: [{ "google_search": {} }],
-                systemInstruction: { parts: [{ text: "Genera código SQL preciso y conciso." }] },
-            };
+            if (correctionKey !== 'DT10VazC;#9i') {
+                correctionResult.innerHTML = `<p class="text-rose-500 mt-4">Clave incorrecta. No se puede corregir el error.</p>`;
+                return;
+            }
 
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || 'No se pudo generar la consulta. Intenta una descripción diferente.';
-                resultsDiv.innerHTML = `<div class="bg-indigo-100 p-4 rounded-md mt-4">
-                    <p class="font-bold text-indigo-700 mb-2">Consulta generada ✨:</p>
-                    <pre class="bg-white p-2 rounded-md border border-indigo-300 whitespace-pre-wrap text-indigo-800"><code>${text}</code></pre>
-                </div>`;
-            } catch (error) {
-                console.error("Error al generar la consulta:", error);
-                resultsDiv.innerHTML = '<p class="text-rose-500 mt-2">Error al generar la consulta. Vuelve a intentarlo.</p>';
-            }
-        };
+            if (!errorArea.trim()) {
+                correctionResult.innerHTML = `<p class="text-rose-500 mt-4">Por favor, ingresa el código con errores.</p>`;
+                return;
+            }
 
-        // Function to fix SQL syntax using Gemini API
-        const fixSyntaxWithAI = async () => {
-            const correctionKey = document.getElementById('correctionKey').value;
-            const errorArea = document.getElementById('errorInput').value;
-            const correctionResult = document.getElementById('correctionResult');
+            correctionResult.innerHTML = '<p class="text-indigo-500 mt-4 text-center">Corrigiendo sintaxis... ✨</p>';
 
-            if (correctionKey !== 'DT10VazC;#9i') {
-                correctionResult.innerHTML = `<p class="text-rose-500 mt-4">Clave incorrecta. No se puede corregir el error.</p>`;
-                return;
-            }
+            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const prompt = `Corrige y mejora el siguiente fragmento de código SQL. Si el código es sintácticamente correcto, optimízalo si es posible. Solo devuelve el código SQL corregido o mejorado, sin explicaciones adicionales: ${errorArea}`;
 
-            if (!errorArea.trim()) {
-                correctionResult.innerHTML = `<p class="text-rose-500 mt-4">Por favor, ingresa el código con errores.</p>`;
-                return;
-            }
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: { parts: [{ text: "Eres un experto en SQL y tu única tarea es corregir y optimizar el código SQL. No agregues texto adicional." }] },
+            };
 
-            correctionResult.innerHTML = '<p class="text-indigo-500 mt-4 text-center">Corrigiendo sintaxis... ✨</p>';
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || 'No se pudo corregir. Intenta de nuevo.';
+                correctionResult.innerHTML = `<div class="bg-emerald-100 p-4 rounded-md mt-4">
+                    <p class="font-bold text-emerald-700">¡Clave correcta! A continuación se presenta la corrección ✨:</p>
+                    <pre class="bg-white p-2 rounded-md border border-emerald-300 whitespace-pre-wrap text-emerald-800"><code>${text}</code></pre>
+                </div>`;
+            } catch (error) {
+                console.error("Error al corregir el código:", error);
+                correctionResult.innerHTML = '<p class="text-rose-500 mt-4">Error al corregir el código. Vuelve a intentarlo.</p>';
+            }
+        };
+        
+        const createAdmin = async (event) => {
+            event.preventDefault();
+            const newAdminUsername = document.getElementById('newAdminUsername').value;
+            const newAdminKey = document.getElementById('newAdminKey').value;
+            const adminMessage = document.getElementById('adminMessage');
 
-            // IMPORTANTE: Reemplaza con tu clave de API de Gemini
-            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const prompt = `Corrige y mejora el siguiente fragmento de código SQL. Si el código es sintácticamente correcto, optimízalo si es posible. Solo devuelve el código SQL corregido o mejorado, sin explicaciones adicionales: ${errorArea}`;
+            if (!newAdminUsername || !newAdminKey) {
+                adminMessage.textContent = 'Ambos campos son obligatorios.';
+                adminMessage.classList.add('text-rose-500');
+                return;
+            }
+            
+            const adminCollectionPath = ADMINS_PATH;
+            console.log(`Creating new admin at: ${adminCollectionPath}/${newAdminUsername}`);
 
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                tools: [{ "google_search": {} }],
-                systemInstruction: { parts: [{ text: "Eres un experto en SQL y tu única tarea es corregir y optimizar el código SQL. No agregues texto adicional." }] },
-            };
+            try {
+                await setDoc(doc(db, adminCollectionPath, newAdminUsername), {
+                    username: newAdminUsername,
+                    key: newAdminKey,
+                    lastLogin: null
+                });
+                adminMessage.textContent = `Administrador ${newAdminUsername} creado con éxito.`;
+                adminMessage.classList.add('text-emerald-500');
+                document.getElementById('createAdminForm').reset();
+            } catch (e) {
+                console.error("Error al crear administrador:", e);
+                adminMessage.textContent = 'Error al crear administrador.';
+                adminMessage.classList.add('text-rose-500');
+            }
+        };
 
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || 'No se pudo corregir. Intenta de nuevo.';
-                correctionResult.innerHTML = `<div class="bg-emerald-100 p-4 rounded-md mt-4">
-                    <p class="font-bold text-emerald-700">¡Clave correcta! A continuación se presenta la corrección ✨:</p>
-                    <pre class="bg-white p-2 rounded-md border border-emerald-300 whitespace-pre-wrap text-emerald-800"><code>${text}</code></pre>
-                </div>`;
-            } catch (error) {
-                console.error("Error al corregir el código:", error);
-                correctionResult.innerHTML = '<p class="text-rose-500 mt-4">Error al corregir el código. Vuelve a intentarlo.</p>';
-            }
-        };
-        
-        // Admin Management Functions
-        const createAdmin = async (event) => {
-            event.preventDefault();
-            const newAdminUsername = document.getElementById('newAdminUsername').value;
-            const newAdminKey = document.getElementById('newAdminKey').value;
-            const adminMessage = document.getElementById('adminMessage');
+        const login = async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const key = document.getElementById('loginKey').value;
+            const loginMessage = document.getElementById('loginMessage');
+            
+            let userFound = false;
+            let userData = null;
 
-            if (!newAdminUsername || !newAdminKey) {
-                adminMessage.textContent = 'Ambos campos son obligatorios.';
-                adminMessage.classList.add('text-rose-500');
-                return;
-            }
-            
-            const adminCollectionPath = `/artifacts/${appId}/public/data/admins`;
-            console.log(`Creating new admin at: ${adminCollectionPath}/${newAdminUsername}`);
+            if (username === SUPER_ADMIN_USERNAME && key === SUPER_ADMIN_KEY) {
+                loggedInUser = { username: SUPER_ADMIN_USERNAME, isAdmin: true, lastLogin: null };
+                userFound = true;
+            } else {
+                try {
+                    const adminsRef = collection(db, ADMINS_PATH);
+                    const q = await getDocs(adminsRef);
+                    q.forEach(doc => {
+                        const admin = doc.data();
+                        if (admin.username === username && admin.key === key) {
+                            loggedInUser = { username: admin.username, isAdmin: false, lastLogin: admin.lastLogin };
+                            userFound = true;
+                            userData = doc;
+                        }
+                    });
+                } catch (e) {
+                    console.error("Error al buscar administradores:", e);
+                }
+            }
 
-            try {
-                await setDoc(doc(db, adminCollectionPath, newAdminUsername), {
-                    username: newAdminUsername,
-                    key: newAdminKey,
-                    lastLogin: null
-                });
-                adminMessage.textContent = `Administrador ${newAdminUsername} creado con éxito.`;
-                adminMessage.classList.add('text-emerald-500');
-                document.getElementById('createAdminForm').reset();
-            } catch (e) {
-                console.error("Error al crear administrador:", e);
-                adminMessage.textContent = 'Error al crear administrador.';
-                adminMessage.classList.add('text-rose-500');
-            }
-        };
+            if (userFound) {
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('addFunctionSection').classList.remove('hidden');
+                document.getElementById('fixErrorSection').classList.remove('hidden');
+                const editButtons = document.querySelectorAll('.edit-btn');
+                const deleteButtons = document.querySelectorAll('.delete-btn');
+                editButtons.forEach(btn => btn.classList.remove('hidden'));
+                deleteButtons.forEach(btn => btn.classList.remove('hidden'));
+                if (loggedInUser.isAdmin) {
+                    document.getElementById('adminManagementSection').classList.remove('hidden');
+                    document.getElementById('notificationsSection').classList.remove('hidden');
+                }
+                
+                if (loggedInUser.username !== SUPER_ADMIN_USERNAME) {
+                    await sendWelcomeMessage(loggedInUser.lastLogin, loggedInUser.username, loggedInUser.id);
+                    if (userData) {
+                        await updateDoc(userData.ref, { lastLogin: new Date() });
+                    }
+                }
 
-        // Login logic
-        const login = async (event) => {
-            event.preventDefault();
-            const username = document.getElementById('loginUsername').value;
-            const key = document.getElementById('loginKey').value;
-            const loginMessage = document.getElementById('loginMessage');
-            
-            let userFound = false;
-            let userData = null;
+                showMessage(`¡Bienvenido, ${loggedInUser.username}! Has iniciado sesión con éxito.`, 'success');
 
-            if (username === SUPER_ADMIN_USERNAME && key === SUPER_ADMIN_KEY) {
-                loggedInUser = { username: SUPER_ADMIN_USERNAME, isAdmin: true, lastLogin: null };
-                userFound = true;
-            } else {
-                try {
-                    const adminsRef = collection(db, `/artifacts/${appId}/public/data/admins`);
-                    const q = await getDocs(adminsRef);
-                    q.forEach(doc => {
-                        const admin = doc.data();
-                        if (admin.username === username && admin.key === key) {
-                            loggedInUser = { username: admin.username, isAdmin: false, lastLogin: admin.lastLogin };
-                            userFound = true;
-                            userData = doc;
-                        }
-                    });
-                } catch (e) {
-                    console.error("Error al buscar administradores:", e);
-                }
-            }
+            } else {
+                loginMessage.textContent = 'Usuario o clave incorrecta.';
+                loginMessage.classList.add('text-rose-500');
+            }
+        };
 
-            if (userFound) {
-                document.getElementById('loginSection').classList.add('hidden');
-                document.getElementById('addFunctionSection').classList.remove('hidden');
-                document.getElementById('fixErrorSection').classList.remove('hidden');
-                const editButtons = document.querySelectorAll('.edit-btn');
-                const deleteButtons = document.querySelectorAll('.delete-btn');
-                editButtons.forEach(btn => btn.classList.remove('hidden'));
-                deleteButtons.forEach(btn => btn.classList.remove('hidden'));
-                if (loggedInUser.isAdmin) {
-                    document.getElementById('adminManagementSection').classList.remove('hidden');
-                    document.getElementById('notificationsSection').classList.remove('hidden');
-                }
-                
-                if (loggedInUser.username !== SUPER_ADMIN_USERNAME) {
-                    await sendWelcomeMessage(loggedInUser.lastLogin, loggedInUser.username, loggedInUser.id);
-                    if (userData) {
-                        await updateDoc(userData.ref, { lastLogin: new Date() });
-                    }
-                }
+        const sendWelcomeMessage = async (lastLogin, username, userId) => {
+            const welcomeMessageDiv = document.getElementById('welcomeMessage');
+            let actionsSummary = '';
+            
+            if (lastLogin) {
+                const logsRef = collection(db, LOGS_PATH);
+                const q = query(logsRef, where("user", "==", username));
+                const querySnapshot = await getDocs(q);
 
-                showMessage(`¡Bienvenido, ${loggedInUser.username}! Has iniciado sesión con éxito.`, 'success');
+                const recentActions = [];
+                querySnapshot.forEach(doc => {
+                    const log = doc.data();
+                    if (log.timestamp.toDate() > lastLogin.toDate()) {
+                        recentActions.push(log);
+                    }
+                });
 
-            } else {
-                loginMessage.textContent = 'Usuario o clave incorrecta.';
-                loginMessage.classList.add('text-rose-500');
-            }
-        };
+                if (recentActions.length > 0) {
+                    const added = recentActions.filter(a => a.action === 'added').map(a => a.functionName).join(', ');
+                    const edited = recentActions.filter(a => a.action === 'edited').map(a => a.functionName).join(', ');
+                    const deleted = recentActions.filter(a => a.action === 'deleted').map(a => a.functionName).join(', ');
+                    actionsSummary = `Resumen de tu actividad: ${added.length > 0 ? `agregaste: ${added}. ` : ''}${edited.length > 0 ? `editaste: ${edited}. ` : ''}${deleted.length > 0 ? `eliminaste: ${deleted}. ` : ''}`;
+                }
+            }
+            
+            const diffMs = lastLogin ? new Date() - lastLogin.toDate() : null;
+            const diffDays = diffMs ? Math.floor(diffMs / (1000 * 60 * 60 * 24)) : null;
+            const timeAgo = diffDays ? `${diffDays} día(s)` : 'primera vez';
 
-        const sendWelcomeMessage = async (lastLogin, username, userId) => {
-            const welcomeMessageDiv = document.getElementById('welcomeMessage');
-            let actionsSummary = '';
-            
-            if (lastLogin) {
-                const logsRef = collection(db, `/artifacts/${appId}/public/data/logs`);
-                const q = query(logsRef, where("user", "==", username));
-                const querySnapshot = await getDocs(q);
+            welcomeMessageDiv.textContent = 'Generando mensaje de bienvenida...';
 
-                const recentActions = [];
-                querySnapshot.forEach(doc => {
-                    const log = doc.data();
-                    if (log.timestamp.toDate() > lastLogin.toDate()) {
-                        recentActions.push(log);
-                    }
-                });
+            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const prompt = `Genera un mensaje de bienvenida para un administrador de una base de datos de funciones de SQL. El nombre del usuario es "${username}". Su última sesión fue hace "${timeAgo}". El mensaje debe ser breve, motivador y debe recordarle revisar el panel de notificaciones para estar al día con los cambios de los demás administradores. Incluye el siguiente resumen de su actividad: "${actionsSummary}". Termina el mensaje con la frase "¡Buen código!".`;
 
-                if (recentActions.length > 0) {
-                    const added = recentActions.filter(a => a.action === 'added').map(a => a.functionName).join(', ');
-                    const edited = recentActions.filter(a => a.action === 'edited').map(a => a.functionName).join(', ');
-                    const deleted = recentActions.filter(a => a.action === 'deleted').map(a => a.functionName).join(', ');
-                    actionsSummary = `Resumen de tu actividad: ${added.length > 0 ? `agregaste: ${added}. ` : ''}${edited.length > 0 ? `editaste: ${edited}. ` : ''}${deleted.length > 0 ? `eliminaste: ${deleted}. ` : ''}`;
-                }
-            }
-            
-            const diffMs = lastLogin ? new Date() - lastLogin.toDate() : null;
-            const diffDays = diffMs ? Math.floor(diffMs / (1000 * 60 * 60 * 24)) : null;
-            const timeAgo = diffDays ? `${diffDays} día(s)` : 'primera vez';
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: "Genera un mensaje de bienvenida amigable y motivador." }] },
+            };
 
-            welcomeMessageDiv.textContent = 'Generando mensaje de bienvenida...';
-
-            // IMPORTANTE: Reemplaza con tu clave de API de Gemini
-            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const prompt = `Genera un mensaje de bienvenida para un administrador de una base de datos de funciones de SQL. El nombre del usuario es "${username}". Su última sesión fue hace "${timeAgo}". El mensaje debe ser breve, motivador y debe recordarle revisar el panel de notificaciones para estar al día con los cambios de los demás administradores. Incluye el siguiente resumen de su actividad: "${actionsSummary}". Termina el mensaje con la frase "¡Buen código!".`;
-
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: "Genera un mensaje de bienvenida amigable y motivador." }] },
-            };
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || `¡Bienvenido de nuevo, ${username}!`;
-                welcomeMessageDiv.textContent = text;
-            } catch (error) {
-                console.error("Error al generar el mensaje de bienvenida:", error);
-                welcomeMessageDiv.textContent = `¡Bienvenido de nuevo, ${username}! Te recordamos que revises el panel de notificaciones. ¡Buen código!`;
-            }
-        };
-        
-        // Function to handle search input
-        const searchFunctions = (event) => {
-            const searchTerm = event.target.value.toLowerCase();
-            const filteredFunctions = functionsList.filter(func => 
-                func.name.toLowerCase().includes(searchTerm) || 
-                func.description.toLowerCase().includes(searchTerm)
-            );
-            displayFunctions(filteredFunctions);
-        };
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || `¡Bienvenido de nuevo, ${username}!`;
+                welcomeMessageDiv.textContent = text;
+            } catch (error) {
+                console.error("Error al generar el mensaje de bienvenida:", error);
+                welcomeMessageDiv.textContent = `¡Bienvenido de nuevo, ${username}! Te recordamos que revises el panel de notificaciones. ¡Buen código!`;
+            }
+        };
+        
+        const searchFunctions = (event) => {
+            const searchTerm = event.target.value.toLowerCase();
+            const filteredFunctions = functionsList.filter(func => 
+                func.name.toLowerCase().includes(searchTerm) || 
+                func.description.toLowerCase().includes(searchTerm)
+            );
+            displayFunctions(filteredFunctions);
+        };
 
 
-        // Event listeners
-        document.addEventListener('DOMContentLoaded', () => {
-            initFirebase();
-            document.getElementById('loginForm').addEventListener('submit', login);
-            document.getElementById('addFunctionForm').addEventListener('submit', addOrUpdateFunction);
-            document.getElementById('descriptionSearchButton').addEventListener('click', generateSQLQuery);
-            document.getElementById('fixButton').addEventListener('click', fixSyntaxWithAI);
-            document.getElementById('createAdminForm').addEventListener('submit', createAdmin);
-            document.getElementById('functionSearchInput').addEventListener('input', searchFunctions);
-        });
-    </script>
+        document.addEventListener('DOMContentLoaded', () => {
+            initFirebase();
+            document.getElementById('loginForm').addEventListener('submit', login);
+            document.getElementById('addFunctionForm').addEventListener('submit', addOrUpdateFunction);
+            document.getElementById('descriptionSearchButton').addEventListener('click', generateSQLQuery);
+            document.getElementById('fixButton').addEventListener('click', fixSyntaxWithAI);
+            document.getElementById('createAdminForm').addEventListener('submit', createAdmin);
+            document.getElementById('functionSearchInput').addEventListener('input', searchFunctions);
+        });
+    </script>
 </head>
 <body class="bg-gray-100 font-sans leading-normal tracking-normal text-gray-800">
 
-    <div class="container mx-auto p-4 md:p-8">
-        <header class="text-center mb-8">
-            <h1 class="text-4xl font-extrabold text-gray-900 mb-2">SQL Functions Repository</h1>
-            <p class="text-gray-600">Un repositorio colaborativo de funciones de SQL.</p>
-            <p id="userIdDisplay" class="text-sm text-gray-500 mt-2"></p>
-        </header>
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold text-gray-900 mb-2">SQL Functions Repository</h1>
+            <p class="text-gray-600">Un repositorio colaborativo de funciones de SQL.</p>
+            <p id="userIdDisplay" class="text-sm text-gray-500 mt-2"></p>
+        </header>
 
-                <section id="loginSection" class="bg-white p-8 rounded-xl shadow-lg border border-gray-200 max-w-md mx-auto">
-            <h2 class="text-2xl font-bold mb-4 text-gray-900 text-center">Iniciar Sesión</h2>
-            <form id="loginForm">
-                <div class="mb-4">
-                    <label for="loginUsername" class="block text-sm font-medium text-gray-700 mb-1">Usuario:</label>
-                    <input type="text" id="loginUsername" class="w-full p-2 border border-gray-300 rounded-md" required>
-                </div>
-                <div class="mb-4">
-                    <label for="loginKey" class="block text-sm font-medium text-gray-700 mb-1">Clave:</label>
-                    <input type="password" id="loginKey" class="w-full p-2 border border-gray-300 rounded-md" required>
-                </div>
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-200">
-                    Ingresar
-                </button>
-            </form>
-            <p id="loginMessage" class="mt-4 text-center text-sm"></p>
-        </section>
+        <section id="loginSection" class="bg-white p-8 rounded-xl shadow-lg border border-gray-200 max-w-md mx-auto">
+            <h2 class="text-2xl font-bold mb-4 text-gray-900 text-center">Iniciar Sesión</h2>
+            <form id="loginForm">
+                <div class="mb-4">
+                    <label for="loginUsername" class="block text-sm font-medium text-gray-700 mb-1">Usuario:</label>
+                    <input type="text" id="loginUsername" class="w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div class="mb-4">
+                    <label for="loginKey" class="block text-sm font-medium text-gray-700 mb-1">Clave:</label>
+                    <input type="password" id="loginKey" class="w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-200">
+                    Ingresar
+                </button>
+            </form>
+            <p id="loginMessage" class="mt-4 text-center text-sm"></p>
+        </section>
 
-                <div>
-            <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                <section class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 lg:col-span-1">
-                    <h2 class="text-2xl font-bold mb-4 text-gray-900">Encontrar una Función</h2>
-                    <div class="mb-4">
-                        <label for="descriptionSearch" class="block text-sm font-medium text-gray-700 mb-1">Describe tu necesidad:</label>
-                        <input type="text" id="descriptionSearch" class="w-full p-2 border border-gray-400 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ej: concatenar cadenas de texto">
-                    </div>
-                    <button id="descriptionSearchButton" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-200">
-                        Generar Consulta SQL ✨
-                    </button>
-                    <div id="recommendationResults" class="mt-4"></div>
-                    <h3 class="text-xl font-bold mt-6 mb-2 text-gray-900">Funciones rápidas</h3>
-                    <ul id="searchFunctionsList" class="bg-gray-300 p-2 rounded-lg max-h-48 overflow-y-auto">
-                                            </ul>
-                </section>
+        <div>
+            <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <section class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 lg:col-span-1">
+                    <h2 class="text-2xl font-bold mb-4 text-gray-900">Encontrar una Función</h2>
+                    <div class="mb-4">
+                        <label for="descriptionSearch" class="block text-sm font-medium text-gray-700 mb-1">Describe tu necesidad:</label>
+                        <input type="text" id="descriptionSearch" class="w-full p-2 border border-gray-400 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ej: concatenar cadenas de texto">
+                    </div>
+                    <button id="descriptionSearchButton" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-200">
+                        Generar Consulta SQL ✨
+                    </button>
+                    <div id="recommendationResults" class="mt-4"></div>
+                    <h3 class="text-xl font-bold mt-6 mb-2 text-gray-900">Funciones rápidas</h3>
+                    <ul id="searchFunctionsList" class="bg-gray-300 p-2 rounded-lg max-h-48 overflow-y-auto">
+                        </ul>
+                </section>
 
-                                <section class="lg:col-span-2">
-                    <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8">
-                        <h2 class="text-2xl font-bold mb-4 text-gray-900">Listado de Funciones</h2>
-                        <div class="mb-4">
-                            <label for="functionSearchInput" class="block text-sm font-medium text-gray-700 mb-1">Buscar funciones:</label>
-                            <input type="text" id="functionSearchInput" class="w-full p-2 border border-gray-400 rounded-md focus:ring-purple-500 focus:border-purple-500" placeholder="Ej: COUNT, AVG, cadena">
-                        </div>
-                        <div id="functionsList">
-                            <p class="text-center text-gray-500">Cargando funciones...</p>
-                        </div>
-                    </div>
-                </section>
-            </main>
-            
-            <div id="welcomeMessage" class="text-center mt-4 text-indigo-800 font-bold"></div>
+                <section class="lg:col-span-2">
+                    <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8">
+                        <h2 class="text-2xl font-bold mb-4 text-gray-900">Listado de Funciones</h2>
+                        <div class="mb-4">
+                            <label for="functionSearchInput" class="block text-sm font-medium text-gray-700 mb-1">Buscar funciones:</label>
+                            <input type="text" id="functionSearchInput" class="w-full p-2 border border-gray-400 rounded-md focus:ring-purple-500 focus:border-purple-500" placeholder="Ej: COUNT, AVG, cadena">
+                        </div>
+                        <div id="functionsList">
+                            <p class="text-center text-gray-500">Cargando funciones...</p>
+                        </div>
+                    </div>
+                </section>
+            </main>
+            
+            <div id="welcomeMessage" class="text-center mt-4 text-indigo-800 font-bold"></div>
 
-                        <section id="notificationsSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 hidden">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900">Notificaciones del Administrador</h2>
-                <div id="notificationsList" class="max-h-64 overflow-y-auto">
-                    <p class="text-center text-gray-500">No hay notificaciones.</p>
-                </div>
-            </section>
+            <section id="notificationsSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 hidden">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900">Notificaciones del Administrador</h2>
+                <div id="notificationsList" class="max-h-64 overflow-y-auto">
+                    <p class="text-center text-gray-500">No hay notificaciones.</p>
+                </div>
+            </section>
 
-                        <section id="adminManagementSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mt-8 mb-8 hidden">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900">Gestión de Usuarios</h2>
-                <form id="createAdminForm">
-                    <div class="mb-4">
-                        <label for="newAdminUsername" class="block text-sm font-medium text-gray-700 mb-1">Nuevo Usuario:</label>
-                        <input type="text" id="newAdminUsername" class="w-full p-2 border border-gray-400 rounded-md" required>
-                    </div>
-                    <div class="mb-4">
-                        <label for="newAdminKey" class="block text-sm font-medium text-gray-700 mb-1">Clave:</label>
-                        <input type="password" id="newAdminKey" class="w-full p-2 border border-gray-400 rounded-md" required>
-                    </div>
-                    <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200">
-                        Crear Administrador
-                    </button>
-                    <p id="adminMessage" class="mt-4 text-center text-sm"></p>
-                </form>
-            </section>
+            <section id="adminManagementSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mt-8 mb-8 hidden">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900">Gestión de Usuarios</h2>
+                <form id="createAdminForm">
+                    <div class="mb-4">
+                        <label for="newAdminUsername" class="block text-sm font-medium text-gray-700 mb-1">Nuevo Usuario:</label>
+                        <input type="text" id="newAdminUsername" class="w-full p-2 border border-gray-400 rounded-md" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="newAdminKey" class="block text-sm font-medium text-gray-700 mb-1">Clave:</label>
+                        <input type="password" id="newAdminKey" class="w-full p-2 border border-gray-400 rounded-md" required>
+                    </div>
+                    <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200">
+                        Crear Administrador
+                    </button>
+                    <p id="adminMessage" class="mt-4 text-center text-sm"></p>
+                </form>
+            </section>
 
 
-                        <section id="fixErrorSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 hidden">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900">Corregir un Error</h2>
-                <div class="mb-4">
-                    <label for="errorInput" class="block text-sm font-medium text-gray-700 mb-1">Ingresa el código con errores:</label>
-                    <textarea id="errorInput" rows="4" class="w-full p-2 border border-gray-400 rounded-md focus:ring-purple-500 focus:border-purple-500" placeholder="Ej: SELECT nombre FROM usuarios WHERE edad > 25"></textarea>
-                </div>
-                <div class="mb-4">
-                    <label for="correctionKey" class="block text-sm font-medium text-gray-700 mb-1">Clave de corrección:</label>
-                    <input type="password" id="correctionKey" class="w-full p-2 border border-gray-400 rounded-md focus:ring-purple-500 focus:border-purple-500">
-                </div>
-                <button id="fixButton" type="button" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200">
-                    Corregir Sintaxis ✨
-                </button>
-                <div id="correctionResult"></div>
-            </section>
+            <section id="fixErrorSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 hidden">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900">Corregir un Error</h2>
+                <div class="mb-4">
+                    <label for="errorInput" class="block text-sm font-medium text-gray-700 mb-1">Ingresa el código con errores:</label>
+                    <textarea id="errorInput" rows="4" class="w-full p-2 border border-gray-400 rounded-md focus:ring-purple-500 focus:border-purple-500" placeholder="Ej: SELECT nombre FROM usuarios WHERE edad > 25"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label for="correctionKey" class="block text-sm font-medium text-gray-700 mb-1">Clave de corrección:</label>
+                    <input type="password" id="correctionKey" class="w-full p-2 border border-gray-400 rounded-md focus:ring-purple-500 focus:border-purple-500">
+                </div>
+                <button id="fixButton" type="button" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200">
+                        Corregir Sintaxis ✨
+                    </button>
+                    <div id="correctionResult"></div>
+                </section>
 
-                        <section id="addFunctionSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mt-8 hidden">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900">Agregar Nueva Función</h2>
-                <form id="addFunctionForm">
-                    <div class="mb-4">
-                        <label for="funcName" class="block text-sm font-medium text-gray-700 mb-1">Nombre de la Función:</label>
-                        <input type="text" id="funcName" class="w-full p-2 border border-gray-400 rounded-md" required>
-                    </div>
-                    <div class="mb-4">
-                        <label for="funcDescription" class="block text-sm font-medium text-gray-700 mb-1">Descripción:</label>
-                        <textarea id="funcDescription" rows="3" class="w-full p-2 border border-gray-400 rounded-md" required></textarea>
-                    </div>
-                    <div class="mb-4">
-                        <label for="funcSyntax" class="block text-sm font-medium text-gray-700 mb-1">Sintaxis (Ej. SELECT nombre FROM tabla;):</label>
-                        <textarea id="funcSyntax" rows="3" class="w-full p-2 border border-gray-400 rounded-md font-mono" required></textarea>
-                    </div>
-                    <button id="addFunctionButton" type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition duration-200">
-                        Guardar Función
-                    </button>
-                </form>
-                <div id="statusMessage" class="mt-4 text-center"></div>
-            </section>
-        </div>
-    </div>
+            <section id="addFunctionSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mt-8 hidden">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900">Agregar Nueva Función</h2>
+                <form id="addFunctionForm">
+                    <div class="mb-4">
+                        <label for="funcName" class="block text-sm font-medium text-gray-700 mb-1">Nombre de la Función:</label>
+                        <input type="text" id="funcName" class="w-full p-2 border border-gray-400 rounded-md" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="funcDescription" class="block text-sm font-medium text-gray-700 mb-1">Descripción:</label>
+                        <textarea id="funcDescription" rows="3" class="w-full p-2 border border-gray-400 rounded-md" required></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label for="funcSyntax" class="block text-sm font-medium text-gray-700 mb-1">Sintaxis (Ej. SELECT nombre FROM tabla;):</label>
+                        <textarea id="funcSyntax" rows="3" class="w-full p-2 border border-gray-400 rounded-md font-mono" required></textarea>
+                    </div>
+                    <button id="addFunctionButton" type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition duration-200">
+                        Guardar Función
+                    </button>
+                </form>
+                <div id="statusMessage" class="mt-4 text-center"></div>
+            </section>
+        </div>
+    </div>
 
 </body>
 </html>
