@@ -11,15 +11,14 @@
         import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, getDocs, setDoc, getDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global variables provided by the environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = {
-  apiKey: "AIzaSyCeD4TAPK2GuW01J5WQl7vJjmJWC671f-Y",
-  authDomain: "codigograbado.firebaseapp.com",
-  projectId: "codigograbado",
-  storageBucket: "codigograbado.firebasestorage.app",
-  messagingSenderId: "346430888474",
-  appId: "1:346430888474:web:cbaa641fbf4fc62bca4fa3",
-  measurementId: "G-626THBS8CJ"
+  apiKey: "AIzaSyCeD4TAPK2GuW01J5WQl7vJjmJWC671f-Y",
+  authDomain: "codigograbado.firebaseapp.com",
+  projectId: "codigograbado",
+  storageBucket: "codigograbado.firebasestorage.app",
+  messagingSenderId: "346430888474",
+  appId: "1:346430888474:web:cbaa641fbf4fc62bca4fa3",
+  measurementId: "G-626THBS8CJ"
 };
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -29,23 +28,27 @@
 
         const SUPER_ADMIN_USERNAME = 'GravisLudio';
         const SUPER_ADMIN_KEY = 'DT10VazC;#9i';
+        const DB_PATH = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ/sql_functions`;
+        const ADMIN_PATH = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ/admins`;
+        const LOGS_PATH = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ/logs`;
+        const NOTIFICATIONS_PATH = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ/notifications`;
 
         // Function to initialize Firebase
         const initFirebase = async () => {
             try {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                
+                
                 // Sign in with the provided custom token or anonymously
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
                     await signInAnonymously(auth);
                 }
-                
+                
                 userId = auth.currentUser.uid;
                 document.getElementById('userIdDisplay').textContent = `Tu ID de usuario: ${userId}`;
-                
+                
                 console.log("Firebase inicializado y autenticación exitosa.");
                 // setLogLevel('Debug'); // Uncomment for debugging
                 fetchFunctions();
@@ -76,9 +79,7 @@
                 console.error("Firestore no está inicializado.");
                 return;
             }
-            const collectionPath = `/artifacts/${appId}/public/data/sql_functions`;
-            console.log(`Fetching functions from: ${collectionPath}`);
-            const q = collection(db, collectionPath);
+            const q = collection(db, DB_PATH);
             onSnapshot(q, (snapshot) => {
                 functionsList = snapshot.docs.map(doc => ({
                     id: doc.id,
@@ -97,9 +98,7 @@
                 console.error("Firestore no está inicializado o el ID de usuario no está disponible.");
                 return;
             }
-            const collectionPath = `/artifacts/${appId}/users/${userId}/notifications`;
-            console.log(`Fetching notifications from: ${collectionPath}`);
-            const q = collection(db, collectionPath);
+            const q = collection(db, `${DB_PATH}/users/${userId}/notifications`);
             onSnapshot(q, (snapshot) => {
                 const notifications = snapshot.docs.map(doc => doc.data());
                 displayNotifications(notifications);
@@ -115,7 +114,7 @@
                 return;
             }
             try {
-                await addDoc(collection(db, `/artifacts/${appId}/users/${userId}/notifications`), {
+                await addDoc(collection(db, `${DB_PATH}/users/${userId}/notifications`), {
                     message: `Se ha agregado una nueva función: "${func.name}" con la descripción: "${func.description}".`,
                     createdAt: new Date()
                 });
@@ -128,10 +127,10 @@
         const displayNotifications = (notifications) => {
             const notificationsList = document.getElementById('notificationsList');
             if (!notificationsList) return;
-            
+            
             notificationsList.innerHTML = '';
             notifications.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
-            
+            
             notifications.forEach(notif => {
                 const notifItem = document.createElement('div');
                 notifItem.className = 'bg-indigo-200 p-3 rounded-md mb-2';
@@ -214,7 +213,7 @@
                 });
                 const result = await response.json();
                 const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                
+                
                 if (text.trim().toUpperCase().startsWith('SÍ')) {
                     return { valid: true, message: '¡Validación exitosa!' };
                 } else {
@@ -234,7 +233,7 @@
             const syntax = document.getElementById('funcSyntax').value;
             const button = document.getElementById('addFunctionButton');
             const originalButtonText = button.textContent;
-            
+            
             if (!loggedInUser) {
                 showMessage('Debes iniciar sesión para realizar esta acción.', 'error');
                 return;
@@ -259,7 +258,7 @@
 
             try {
                 if (editingId) {
-                    await updateDoc(doc(db, `/artifacts/${appId}/public/data/sql_functions`, editingId), {
+                    await updateDoc(doc(db, `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ/sql_functions`, editingId), {
                         name,
                         description,
                         syntax,
@@ -274,7 +273,7 @@
                     editingId = null;
                     document.getElementById('addFunctionButton').textContent = 'Guardar Función';
                 } else {
-                    await addDoc(collection(db, `/artifacts/${appId}/public/data/sql_functions`), {
+                    await addDoc(collection(db, `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ/sql_functions`), {
                         name,
                         description,
                         syntax,
@@ -333,7 +332,6 @@
                     console.error("Error al eliminar documento: ", e);
                     showMessage("Error al eliminar la función.", 'error');
                 }
-            }
         };
 
         // Function to generate SQL query using Gemini API
@@ -341,7 +339,7 @@
             const description = document.getElementById('descriptionSearch').value;
             const resultsDiv = document.getElementById('recommendationResults');
             resultsDiv.innerHTML = '<p class="text-indigo-500 mt-2 text-center">Generando consulta... ✨</p>';
-            
+            
             // IMPORTANTE: Reemplaza con tu clave de API de Gemini
             const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
@@ -416,7 +414,7 @@
                 correctionResult.innerHTML = '<p class="text-rose-500 mt-4">Error al corregir el código. Vuelve a intentarlo.</p>';
             }
         };
-        
+        
         // Admin Management Functions
         const createAdmin = async (event) => {
             event.preventDefault();
@@ -429,7 +427,7 @@
                 adminMessage.classList.add('text-rose-500');
                 return;
             }
-            
+            
             const adminCollectionPath = `/artifacts/${appId}/public/data/admins`;
             console.log(`Creating new admin at: ${adminCollectionPath}/${newAdminUsername}`);
 
@@ -455,7 +453,7 @@
             const username = document.getElementById('loginUsername').value;
             const key = document.getElementById('loginKey').value;
             const loginMessage = document.getElementById('loginMessage');
-            
+            
             let userFound = false;
             let userData = null;
 
@@ -491,7 +489,7 @@
                     document.getElementById('adminManagementSection').classList.remove('hidden');
                     document.getElementById('notificationsSection').classList.remove('hidden');
                 }
-                
+                
                 if (loggedInUser.username !== SUPER_ADMIN_USERNAME) {
                     await sendWelcomeMessage(loggedInUser.lastLogin, loggedInUser.username, loggedInUser.id);
                     if (userData) {
@@ -510,7 +508,7 @@
         const sendWelcomeMessage = async (lastLogin, username, userId) => {
             const welcomeMessageDiv = document.getElementById('welcomeMessage');
             let actionsSummary = '';
-            
+            
             if (lastLogin) {
                 const logsRef = collection(db, `/artifacts/${appId}/public/data/logs`);
                 const q = query(logsRef, where("user", "==", username));
@@ -531,7 +529,7 @@
                     actionsSummary = `Resumen de tu actividad: ${added.length > 0 ? `agregaste: ${added}. ` : ''}${edited.length > 0 ? `editaste: ${edited}. ` : ''}${deleted.length > 0 ? `eliminaste: ${deleted}. ` : ''}`;
                 }
             }
-            
+            
             const diffMs = lastLogin ? new Date() - lastLogin.toDate() : null;
             const diffDays = diffMs ? Math.floor(diffMs / (1000 * 60 * 60 * 24)) : null;
             const timeAgo = diffDays ? `${diffDays} día(s)` : 'primera vez';
@@ -562,12 +560,12 @@
                 welcomeMessageDiv.textContent = `¡Bienvenido de nuevo, ${username}! Te recordamos que revises el panel de notificaciones. ¡Buen código!`;
             }
         };
-        
+        
         // Function to handle search input
         const searchFunctions = (event) => {
             const searchTerm = event.target.value.toLowerCase();
-            const filteredFunctions = functionsList.filter(func => 
-                func.name.toLowerCase().includes(searchTerm) || 
+            const filteredFunctions = functionsList.filter(func => 
+                func.name.toLowerCase().includes(searchTerm) || 
                 func.description.toLowerCase().includes(searchTerm)
             );
             displayFunctions(filteredFunctions);
@@ -643,7 +641,7 @@
                     </div>
                 </section>
             </main>
-            
+            
             <div id="welcomeMessage" class="text-center mt-4 text-indigo-800 font-bold"></div>
 
                         <section id="notificationsSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 hidden">
