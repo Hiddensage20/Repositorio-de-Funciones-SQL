@@ -230,7 +230,7 @@
         };
         
         // ************************************************************
-        // ********* FUNCIÓN DE VALIDACIÓN PARA EL BOTÓN **************
+        // ********* FUNCIÓN DE VALIDACIÓN AMPLIADA A CUALQUIER COMANDO SQL **************
         // ************************************************************
         const validateFunctionWithAI = async () => {
             const name = document.getElementById('funcName').value.trim();
@@ -258,25 +258,25 @@
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`; 
             
             // ************************************************************
-            // ********* PROMPT CORREGIDO: INCLUYE NOMBRE DE LA FUNCIÓN ****
+            // ********* PROMPT AMPLIADO PARA ACEPTAR CUALQUIER COMANDO SQL *
             // ************************************************************
-            const prompt = `Eres un experto en SQL y mentor. El usuario está intentando guardar una entrada en un repositorio de funciones SQL.
+            let prompt = `Eres un experto en SQL. El usuario está intentando guardar un comando SQL.
 
-                            1. **Función Intendada:** "${name}"
-                            2. **Descripción:** "${description}"
-                            3. **Sintaxis proporcionada:** "${syntax}"
+            1. **Comando/Concepto Intendado:** "${name}"
+            2. **Descripción:** "${description}"
+            3. **Sintaxis proporcionada:** "${syntax}"
 
-                            Evalúa si la Sintaxis proporcionada es un ejemplo correcto y útil de una FUNCION SQL (como AVG, CONCAT, o una función de ventana), y si es un buen ejemplo para el repositorio.
+            Evalúa si la 'Sintaxis proporcionada' es un comando SQL bien formado (DDL, DML, TCL, o una función SQL) y que esté razonablemente relacionado con el 'Comando/Concepto Intendado'.
 
-                            - Si la Sintaxis es una función SQL válida, responde con: SI:VALIDA
-                            - Si la Sintaxis NO es una función SQL (por ejemplo, es un DDL o DML simple, como SELECT * FROM tabla) o no está directamente relacionada con la Función Intendada, sugiere la FUNCIÓN SQL más relevante que el usuario debería guardar en su lugar, basándote en la Descripción y la Sintaxis.
-                            
-                            Responde con: NO:Sugerencia de Función: [Nombre de la Función sugerida]`;
+            - Si la Sintaxis es un comando SQL válido, responde con: SI:VALIDA
+            - Si la Sintaxis NO es un comando SQL válido (ej. está incompleto o es erróneo), analiza la sintaxis y la descripción para sugerir el comando SQL que el usuario probablemente pretendía usar.
+            
+            Responde con: NO:Sugerencia de Comando: [Comando/Corrección sugerida]`;
 
 
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: "Responde estrictamente con 'SI:VALIDA' o 'NO:Sugerencia de Función: [FUNCIÓN SUGERIDA]'. No uses comillas ni explicaciones adicionales. Si la sintaxis es un SELECT simple, sugiere una función de agregado (COUNT, AVG, etc.)." }] },
+                systemInstruction: { parts: [{ text: "Responde estrictamente con 'SI:VALIDA' o 'NO:Sugerencia de Comando: [COMANDO SUGERIDO/CORRECCIÓN]'. No uses comillas ni explicaciones adicionales." }] },
             };
             
             let attempts = 0;
@@ -319,16 +319,17 @@
 
                 if (responseText.startsWith('SI:VALIDA')) {
                     isSyntaxValid = true;
-                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-emerald-800 bg-emerald-200 p-3 rounded-lg">¡Validación exitosa! La sintaxis es una función SQL válida. Puedes guardar.</p>`;
+                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-emerald-800 bg-emerald-200 p-3 rounded-lg">¡Validación exitosa! La sintaxis es un comando SQL válido. Puedes guardar.</p>`;
                     return { valid: true };
-                } else if (responseText.startsWith('NO:SUGERENCIA DE FUNCIÓN:')) {
-                    const suggestion = responseText.replace('NO:SUGERENCIA DE FUNCIÓN:', '').trim();
-                    // El mensaje ahora usará la sugerencia más relevante
-                    const userMessage = `Error de sintaxis: Lo que ingresaste no es una función SQL. ¿Intentabas guardar la función **${suggestion}**? Por favor, ajusta la sintaxis y vuelve a validar.`;
+                } else if (responseText.startsWith('NO:SUGERENCIA DE COMANDO:')) {
+                    const suggestion = responseText.replace('NO:SUGERENCIA DE COMANDO:', '').trim();
+                    
+                    const userMessage = `Error de Sintaxis: Lo que ingresaste NO es un comando SQL válido. Sugerencia de la IA: **${suggestion}**. Por favor, ajusta la sintaxis y vuelve a validar.`;
+                    
                     validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">${userMessage}</p>`;
                     return { valid: false };
                 } else {
-                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error: La sintaxis no es una función SQL válida. Inténtalo de nuevo.</p>`;
+                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error: La sintaxis no es válida. Inténtalo de nuevo.</p>`;
                     return { valid: false };
                 }
             } catch (error) {
@@ -899,8 +900,7 @@
     <div class="container mx-auto p-4 md:p-8">
         <header class="text-center mb-8">
             <h1 class="text-4xl font-extrabold text-gray-900 mb-2">SQL Functions Repository</h1>
-            <p class="text-gray-600">Un repositorio colaborativo de funciones de SQL.</p>
-            <p id="userIdDisplay" class="text-sm text-gray-500 mt-2"></p>
+            <p class="text-gray-600">Un repositorio colaborativo de comandos SQL.</p> <p id="userIdDisplay" class="text-sm text-gray-500 mt-2"></p>
             <button id="logoutButton" class="hidden mt-3 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200 text-sm">Cerrar Sesión</button>
         </header>
         
@@ -938,21 +938,19 @@
                     </button>
                     <div id="recommendationResults" class="mt-4"></div>
                     
-                    <h3 class="text-xl font-bold mt-8 mb-2 text-gray-900">Funciones rápidas (Clic para usar)</h3>
-                    <ul id="searchFunctionsList" class="bg-gray-100 p-2 rounded-lg max-h-48 overflow-y-auto border border-gray-300">
+                    <h3 class="text-xl font-bold mt-8 mb-2 text-gray-900">Comandos Rápidos (Clic para usar)</h3> <ul id="searchFunctionsList" class="bg-gray-100 p-2 rounded-lg max-h-48 overflow-y-auto border border-gray-300">
                         <p class="text-center text-gray-500 text-sm py-2">Cargando sugerencias...</p>
                     </ul>
                 </section>
 
                 <section class="lg:col-span-2">
                     <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8">
-                        <h2 class="text-2xl font-bold mb-4 text-gray-900">Listado de Funciones</h2>
-                        <div class="mb-4">
-                            <label for="functionSearchInput" class="block text-sm font-medium text-gray-700 mb-1">Buscar funciones:</label>
-                            <input type="text" id="functionSearchInput" class="w-full p-2 border border-gray-400 rounded-md focus:ring-purple-500 focus:border-purple-500" placeholder="Ej: COUNT, AVG, cadena">
+                        <h2 class="text-2xl font-bold mb-4 text-gray-900">Listado de Comandos SQL</h2> <div class="mb-4">
+                            <label for="functionSearchInput" class="block text-sm font-medium text-gray-700 mb-1">Buscar comandos:</label>
+                            <input type="text" id="functionSearchInput" class="w-full p-2 border border-gray-400 rounded-md focus:ring-purple-500 focus:border-purple-500" placeholder="Ej: SELECT, ADD, AVG, cadena">
                         </div>
                         <div id="functionsList">
-                            <p class="text-center text-gray-500">Cargando funciones...</p>
+                            <p class="text-center text-gray-500">Cargando comandos...</p>
                         </div>
                     </div>
                 </section>
@@ -982,18 +980,16 @@
                 </section>
 
             <section id="addFunctionSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mt-8 hidden">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900">Agregar Nueva Función</h2>
-                <form id="addFunctionForm">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900">Agregar Nuevo Comando/Concepto</h2> <form id="addFunctionForm">
                     <div class="mb-4">
-                        <label for="funcName" class="block text-sm font-medium text-gray-700 mb-1">Nombre de la Función (Ej: AVG, CONCAT):</label>
-                        <input type="text" id="funcName" class="w-full p-2 border border-gray-400 rounded-md" required>
+                        <label for="funcName" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Comando/Concepto (Ej: SELECT, UPDATE, AVG, DDL):</label> <input type="text" id="funcName" class="w-full p-2 border border-gray-400 rounded-md" required>
                     </div>
                     <div class="mb-4">
                         <label for="funcDescription" class="block text-sm font-medium text-gray-700 mb-1">Descripción breve:</label>
                         <textarea id="funcDescription" rows="3" class="w-full p-2 border border-gray-400 rounded-md" required></textarea>
                     </div>
                     <div class="mb-4">
-                        <label for="funcSyntax" class="block text-sm font-medium text-gray-700 mb-1">Sintaxis (Ej. SELECT CONCAT(col1, col2) FROM tabla;):</label>
+                        <label for="funcSyntax" class="block text-sm font-medium text-gray-700 mb-1">Sintaxis (Ej. SELECT * FROM tabla;):</label>
                         <textarea id="funcSyntax" rows="3" class="w-full p-2 border border-gray-400 rounded-md font-mono" required></textarea>
                     </div>
                     
@@ -1002,7 +998,7 @@
                     </button>
                     <div id="validationMessage" class="mt-4 text-center"></div>
                     <button id="addFunctionButton" type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition duration-200">
-                        Guardar Función
+                        Guardar Comando
                     </button>
                 </form>
                 <div id="statusMessage" class="mt-4 text-center"></div>
