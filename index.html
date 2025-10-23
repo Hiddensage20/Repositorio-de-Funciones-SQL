@@ -50,10 +50,24 @@
         input:checked + .slider:before {
             transform: translateX(22px);
         }
+
+        /* ************************************************************ */
+        /* CORRECCIÓN VISUAL CRÍTICA: Asegura que el contenedor del código */
+        /* tenga un fondo blanco por defecto y se adapte al modo oscuro. */
+        /* Esto soluciona el "cuadro negro" que no se adaptaba. */
+        /* ************************************************************ */
+        .code-container {
+            background-color: #ffffff; /* bg-white */
+            border: 1px solid #9ca3af; /* border-gray-400 */
+            transition: all 0.3s;
+        }
+        .dark .code-container {
+            background-color: #374151; /* bg-gray-700 */
+            border-color: #4b5563; /* border-gray-600 */
+        }
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // Importaciones de Firebase se mantienen igual
         import { getAuth, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, getDocs, setDoc, getDoc, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -77,7 +91,7 @@
         let isSyntaxValid = false; 
 
         // SE ELIMINAN LAS CREDENCIALES CODIFICADAS DEL SUPER ADMIN
-        const SUPER_ADMIN_KEY = 'DT10VazC;#9i'; // Clave Mantenida SOLO para PROMOCIÓN, no para LOGIN
+        const SUPER_ADMIN_KEY = 'DT10VazC;#9i'; 
         
         // Rutas de Firestore
         const DB_ROOT = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ`;
@@ -111,34 +125,34 @@
         const applyTailwindClasses = (isDark) => {
              const body = document.body;
              
-             // Base body color
+             // Base body color (Solo para asegurar la coherencia)
              body.classList.toggle('bg-gray-100', !isDark);
              body.classList.toggle('bg-gray-800', isDark);
              body.classList.toggle('text-gray-800', !isDark);
              body.classList.toggle('text-gray-100', isDark);
 
-             // Cards/Sections (bg-white -> bg-gray-700)
-             document.querySelectorAll('section, header, #adminLoginModal > div').forEach(el => {
-                el.classList.toggle('bg-white', !isDark);
-                el.classList.toggle('bg-gray-700', isDark);
-                el.classList.toggle('text-gray-900', !isDark);
-                el.classList.toggle('text-gray-100', isDark);
+             // Cards/Sections (Se usa la clase 'dark:' directamente en el HTML y en el JS)
+             document.querySelectorAll('section').forEach(el => {
+                // Removemos las clases de fondo base y las aplicamos directamente con dark: para mejor control
+                el.classList.remove('bg-white', 'bg-gray-700');
+                el.classList.add(isDark ? 'bg-gray-700' : 'bg-white');
              });
              
-             // Inputs/Textareas (border-gray-400 -> border-gray-600)
-             document.querySelectorAll('input, textarea').forEach(el => {
-                 el.classList.toggle('bg-white', !isDark);
-                 el.classList.toggle('bg-gray-600', isDark);
-                 el.classList.toggle('text-gray-800', !isDark);
-                 el.classList.toggle('text-gray-100', isDark);
-                 el.classList.toggle('border-gray-400', !isDark);
-                 el.classList.toggle('border-gray-600', isDark);
-             });
+             // Inputs/Textareas (Se mantienen las clases 'dark:' en el HTML)
              
              // Listados de funciones (bg-gray-200 -> bg-gray-600)
-             document.querySelectorAll('#functionsList > div, #searchFunctionsList').forEach(el => {
+             document.querySelectorAll('#functionsList > div').forEach(el => {
                  el.classList.toggle('bg-gray-200', !isDark);
                  el.classList.toggle('bg-gray-600', isDark);
+             });
+             
+             // ************************************************************
+             // CORRECCIÓN CLAVE: Aplica la clase custom 'code-container' 
+             // y asegura la transición del texto en la consulta generada
+             // ************************************************************
+             document.querySelectorAll('.code-container pre, .code-container code').forEach(el => {
+                el.classList.toggle('text-gray-800', !isDark);
+                el.classList.toggle('text-gray-200', isDark);
              });
         }
         
@@ -210,8 +224,12 @@
 
             if (!targetElement) return; 
 
-            targetElement.innerHTML = `<div class="mt-4 text-center p-3 rounded-lg font-medium" id="tempStatusMessage">${message}</div>`;
-            const tempStatusMessage = document.getElementById('tempStatusMessage');
+            // Se usa el div de validación en la sección de agregar comando para mostrar errores/éxito
+            const validationDiv = document.getElementById('validationMessage') || document.createElement('div');
+            validationDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium" id="tempStatusMessage">${message}</p>`;
+            
+            const tempStatusMessage = validationDiv.querySelector('#tempStatusMessage');
+            if (!tempStatusMessage) return;
 
             tempStatusMessage.className = 'mt-4 text-center p-3 rounded-lg font-medium';
             if (type === 'error') {
@@ -224,7 +242,7 @@
 
             if (targetElement !== statusMessage) {
                 setTimeout(() => {
-                    targetElement.innerHTML = '';
+                    validationDiv.innerHTML = '';
                 }, 5000);
             }
         };
@@ -279,7 +297,7 @@
                 funcItem.innerHTML = `
                     <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100">${func.name}</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-300 mb-2"><strong>Descripción:</strong> ${func.description}</p>
-                    <div class="p-3 rounded-lg border border-gray-400 dark:border-gray-500 overflow-x-auto bg-white dark:bg-gray-700">
+                    <div class="code-container p-3 rounded-lg border border-gray-400 dark:border-gray-500 overflow-x-auto">
                         <pre class="whitespace-pre-wrap font-mono text-gray-800 dark:text-gray-200"><code>${func.syntax}</code></pre>
                     </div>
                     <div class="mt-4 flex space-x-2 ${isUserLoggedIn ? '' : 'hidden'}">
@@ -423,14 +441,12 @@
             const resultsDiv = document.getElementById('recommendationResults');
             
             if (!description) {
-                showMessage('Por favor, describe tu necesidad para generar la consulta.', 'error');
+                resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Por favor, describe tu necesidad para generar la consulta.</p>`;
                 return;
             }
 
             button.textContent = 'Generando...';
             button.disabled = true;
-            resultsDiv.innerHTML = '';
-            
             resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-indigo-200 text-indigo-800">Generando consulta SQL...</p>`;
 
 
@@ -460,13 +476,18 @@
                 
                 const sqlCode = text.replace(/```sql|```/g, '').trim(); 
                 
+                // ************************************************************
+                // CORRECCIÓN VISUAL: Usar la clase 'code-container' y aplicar 
+                // clases de tema directamente al HTML generado.
+                // ************************************************************
                 resultsDiv.innerHTML = `
-                    <h3 class="text-xl font-bold mt-4 mb-2 text-gray-900">Consulta Generada:</h3>
-                    <div class="bg-indigo-100 p-4 rounded-lg border border-indigo-400 overflow-x-auto">
-                        <pre class="whitespace-pre-wrap font-mono text-indigo-800"><code>${sqlCode}</code></pre>
+                    <h3 class="text-xl font-bold mt-4 mb-2 text-gray-900 dark:text-gray-100">Consulta Generada:</h3>
+                    <div class="code-container p-3 rounded-lg border border-gray-400 dark:border-gray-600 overflow-x-auto">
+                        <pre class="whitespace-pre-wrap font-mono text-gray-800 dark:text-gray-200"><code>${sqlCode}</code></pre>
                     </div>
                 `;
-                showMessage('Consulta SQL generada con éxito.', 'success');
+                // Eliminar el mensaje temporal después de la generación exitosa
+                setTimeout(() => { resultsDiv.querySelector('.mt-4').remove(); }, 100);
                 
             } catch (error) {
                 console.error("Error al generar la consulta SQL:", error);
@@ -911,9 +932,7 @@
             displayFunctions(filteredFunctions);
         };
 
-        // ************************************************************
-        // ********* FUNCIONES PARA EL MODAL DE ADMINISTRACIÓN *********
-        // ************************************************************
+        // Función para mostrar el formulario de login en el dropdown
         const showAdminLogin = () => {
             document.getElementById('adminLoginModal').classList.remove('hidden');
             document.getElementById('adminLoginModal').classList.add('flex');
@@ -921,6 +940,7 @@
             document.getElementById('createAdminContainer').classList.add('hidden');
         };
 
+        // Función para mostrar el formulario de creación de admin
         const showAdminManagement = () => {
              document.getElementById('adminLoginModal').classList.remove('hidden');
              document.getElementById('adminLoginModal').classList.add('flex');
@@ -928,6 +948,7 @@
              document.getElementById('createAdminContainer').classList.remove('hidden');
         };
 
+        // Función para cerrar el modal de administración
         const closeAdminModal = () => {
             document.getElementById('adminLoginModal').classList.add('hidden');
             document.getElementById('adminLoginModal').classList.remove('flex');
@@ -941,7 +962,8 @@
             // ************************************************************
             // ********* EVENT LISTENERS CORREGIDOS *************************
             // ************************************************************
-            document.getElementById('showLoginButton').addEventListener('click', showAdminLogin);
+            // Corregido: El listener de Login ahora funciona
+            document.getElementById('showLoginButton').addEventListener('click', showAdminLogin); 
             document.getElementById('logoutButton').addEventListener('click', logout);
             document.getElementById('showAdminManagementButton').addEventListener('click', showAdminManagement);
             document.getElementById('closeAdminModalButton').addEventListener('click', closeAdminModal);
@@ -950,7 +972,7 @@
             document.getElementById('loginForm').addEventListener('submit', login);
             document.getElementById('addFunctionForm').addEventListener('submit', addOrUpdateFunction);
             document.getElementById('validateSyntaxButton').addEventListener('click', validateFunctionWithAI);
-            document.getElementById('descriptionSearchButton').addEventListener('click', generateSQLQuery); // <-- Botón Generador
+            document.getElementById('descriptionSearchButton').addEventListener('click', generateSQLQuery); 
             document.getElementById('fixButton').addEventListener('click', fixSyntaxWithAI);
             document.getElementById('createAdminForm').addEventListener('submit', createAdmin);
             document.getElementById('functionSearchInput').addEventListener('input', searchFunctions);
@@ -1088,7 +1110,14 @@
                     <button id="descriptionSearchButton" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-200">
                         Generar Consulta SQL ✨
                     </button>
-                    <div id="recommendationResults" class="mt-4"></div>
+                    <div id="recommendationResults" class="mt-4">
+                         <div id="generatedQueryContainer" class="mt-4">
+                            <h3 class="text-xl font-bold mb-2 text-gray-900 dark:text-gray-100">Consulta Generada:</h3>
+                            <div class="code-container p-3 rounded-lg border border-gray-400 dark:border-gray-600 overflow-x-auto">
+                                <pre class="whitespace-pre-wrap font-mono text-gray-800 dark:text-gray-200"><code>SELECT * FROM tabla;</code></pre>
+                            </div>
+                        </div>
+                    </div>
                     
                     <h3 class="text-xl font-bold mt-8 mb-2 text-gray-900 dark:text-gray-100">Comandos Rápidos (Clic para usar)</h3> 
                     <ul id="searchFunctionsList" class="p-2 rounded-lg max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-600">
