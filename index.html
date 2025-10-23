@@ -384,7 +384,7 @@
             adminMessage.textContent = '';
             adminMessage.className = 'mt-4 text-center text-sm';
             
-            // La clave secreta ahora solo es obligatoria si el usuario existe para evitar la creación de Auth
+            // La clave secreta ahora solo es obligatoria si el email ya existe
             const isPromotingExistingUser = secretKey === SUPER_ADMIN_KEY;
             
             if (!newAdminEmail || !newAdminPassword || !newAdminUsername) {
@@ -401,7 +401,7 @@
                 uid = userCredential.user.uid;
             } catch (e) {
                 if (e.code === 'auth/email-already-in-use') {
-                    // Si el email ya está en uso, intentamos obtener el UID SÓLO si se proporciona la clave.
+                    // Si el email ya está en uso, intentamos obtener el UID SÓLO si se proporciona la clave de promoción.
                     if (isPromotingExistingUser) {
                         try {
                             // Temporalmente loguea al usuario para obtener el UID
@@ -409,7 +409,7 @@
                             uid = userCredential.user.uid;
                             // Cierra la sesión temporal para no interrumpir al Admin que está creando la cuenta.
                             await signOut(auth); 
-                            adminMessage.textContent = 'Advertencia: El usuario Auth ya existía. Se asignarán permisos de administrador.';
+                            adminMessage.textContent = 'Advertencia: El email ya existía. Se asignarán permisos de administrador.';
                             adminMessage.classList.add('text-yellow-500');
                         } catch (signInError) {
                              let displayError = 'Error: El email ya está registrado, pero la contraseña no coincide. No se puede obtener el UID para asignar permisos.';
@@ -443,7 +443,7 @@
                     uid: uid,
                     username: newAdminUsername,
                     email: newAdminEmail,
-                    isAdmin: false, 
+                    isAdmin: true, // Establecer como true para que sea admin de Firestore
                     lastLogin: null
                 }, { merge: true }); // Usar merge: true para no sobrescribir lastLogin si ya existe.
 
@@ -517,7 +517,7 @@
                 const docRef = doc(db, ADMINS_PATH, uid);
                 const docSnap = await getDoc(docRef);
 
-                if (docSnap.exists()) {
+                if (docSnap.exists() && docSnap.data().isAdmin) { // Se verifica si el rol es Admin
                     const admin = docSnap.data();
                     loggedInUser = { 
                         uid: uid,
@@ -528,7 +528,8 @@
                     userFound = true;
                     userData = docSnap;
                 } else {
-                    loginMessage.textContent = 'Usuario no tiene permisos de administrador (Rol no encontrado en Firestore).';
+                    // Si el usuario existe en Auth pero no en Firestore o no es Admin
+                    loginMessage.textContent = 'Usuario no tiene permisos de administrador (Rol no encontrado o desactivado en Firestore).';
                     loginMessage.classList.add('text-rose-500');
                     await signOut(auth); // Desconecta al usuario de Auth si no tiene rol de admin en Firestore
                     return;
@@ -548,6 +549,12 @@
 
 
             if (userFound) {
+                // PRIMERO: cerrar la sesión anónima y abrir la sesión del administrador
+                if (auth.currentUser && auth.currentUser.isAnonymous) {
+                    // Cierra la sesión anónima, ya que signInWithEmailAndPassword ya creó la sesión del admin.
+                    // No necesitamos llamar a signOut aquí porque signInWithEmailAndPassword ya sobreescribió la sesión.
+                }
+
                 document.getElementById('loginSection').classList.add('hidden');
                 document.getElementById('logoutButton').classList.remove('hidden');
                 document.getElementById('addFunctionSection').classList.remove('hidden');
@@ -560,7 +567,7 @@
                     document.getElementById('notificationsSection').classList.remove('hidden');
                 }
                 
-                // Solo para usuarios de Firestore
+                // Actualizar log y mensaje de bienvenida
                 if (userData) {
                     await sendWelcomeMessage(loggedInUser.lastLogin, loggedInUser.username);
                     await updateDoc(userData.ref, { lastLogin: new Date() });
@@ -568,14 +575,69 @@
 
                 showMessage(`¡Bienvenido, ${loggedInUser.username}! Has iniciado sesión con éxito.`, 'success');
                 document.getElementById('welcomeMessage').classList.remove('hidden');
-
-            } else {
-                // Esta parte ya se maneja en el bloque else/catch
             }
         };
 
 
-        const sendWelcomeMessage = async (lastLogin, username) => { /* ... (Logic remains the same) ... */ };
+        const sendWelcomeMessage = async (lastLogin, username) => {
+            const welcomeMessageDiv = document.getElementById('welcomeMessage');
+            let actionsSummary = '';
+            
+            if (lastLogin) {
+                const logsRef = collection(db, LOGS_PATH);
+                const q = query(logsRef, where("user", "==", username));
+                try {
+                    const querySnapshot = await getDocs(q);
+
+                    const recentActions = [];
+                    querySnapshot.forEach(doc => {
+                        const log = doc.data();
+                        if (log.timestamp.toDate() > lastLogin.toDate()) {
+                            recentActions.push(log);
+                        }
+                    });
+
+                    if (recentActions.length > 0) {
+                        const added = recentActions.filter(a => a.action === 'added').map(a => a.functionName).join(', ');
+                        const edited = recentActions.filter(a => a.action === 'edited').map(a => a.functionName).join(', ');
+                        const deleted = recentActions.filter(a => a.action === 'deleted').map(a => a.functionName).join(', ');
+                        actionsSummary = `Resumen de tu actividad: ${added.length > 0 ? `agregaste: ${added}. ` : ''}${edited.length > 0 ? `editaste: ${edited}. ` : ''}${deleted.length > 0 ? `eliminaste: ${deleted}. ` : ''}`;
+                    }
+                } catch (error) {
+                    console.error("Error al obtener logs:", error);
+                }
+            }
+            
+            const diffMs = lastLogin ? new Date() - lastLogin.toDate() : null;
+            const diffDays = diffMs ? Math.floor(diffMs / (1000 * 60 * 60 * 24)) : null;
+            const timeAgo = diffDays !== null ? `${diffDays} día(s)` : 'primera vez';
+
+            welcomeMessageDiv.textContent = 'Generando mensaje de bienvenida...';
+
+            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const prompt = `Genera un mensaje de bienvenida para un administrador de una base de datos de funciones de SQL. El nombre del usuario es "${username}". Su última sesión fue hace "${timeAgo}". El mensaje debe ser breve, motivador y debe recordarle revisar el panel de notificaciones para estar al día con los cambios de los demás administradores. Incluye el siguiente resumen de su actividad: "${actionsSummary}". Termina el mensaje con la frase "¡Buen código!".`;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: "Genera un mensaje de bienvenida amigable y motivador." }] },
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || `¡Bienvenido de nuevo, ${username}!`;
+                welcomeMessageDiv.textContent = text;
+            } catch (error) {
+                console.error("Error al generar el mensaje de bienvenida:", error);
+                welcomeMessageDiv.textContent = `¡Bienvenido de nuevo, ${username}! Te recordamos que revises el panel de notificaciones. ¡Buen código!`;
+            }
+        };
+        
         const generateSQLQuery = async () => { /* ... (Logic remains the same) ... */ };
         const fixSyntaxWithAI = async () => { /* ... (Logic remains the same) ... */ };
         const searchFunctions = (event) => { /* ... (Logic remains the same) ... */ };
@@ -591,8 +653,6 @@
             document.getElementById('createAdminForm').addEventListener('submit', createAdmin);
             
             // Para poder usar la clave de corrección, es necesario un usuario loggeado.
-            // La clave de corrección sigue usando la clave de emergencia para simular un privilegio alto,
-            // pero el usuario debe estar loggeado primero.
             document.getElementById('functionSearchInput').addEventListener('input', searchFunctions);
             document.getElementById('confirmBtn').addEventListener('click', () => handleConfirm(true));
             document.getElementById('cancelBtn').addEventListener('click', () => handleConfirm(false));
