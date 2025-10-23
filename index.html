@@ -223,15 +223,21 @@
                 searchList.appendChild(searchItem);
             });
         };
-
+        
+        // ************************************************************
+        // ********* FUNCIÓN DE VALIDACIÓN CORREGIDA ******************
+        // ************************************************************
         const validateFunctionWithAI = async (syntax) => {
             const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`; 
-            const prompt = `Eres un experto en SQL. Evalúa si la siguiente sintaxis es una consulta de SQL válida. Si no es válida, describe en no más de 10 palabras cuál es el error. No ofrezcas correcciones ni explicaciones adicionales. Sintaxis: ${syntax}`;
+            
+            // PROMPT CORREGIDO: Fuerza al modelo a buscar una FUNCIÓN SQL (AVG, CONCAT, etc.), no solo una consulta válida.
+            const prompt = `Eres un experto en SQL. Evalúa si la siguiente sintaxis es un ejemplo correcto y útil de una FUNCION SQL (como AVG, CONCAT, o una función de ventana) dentro de una consulta. Si la sintaxis no es una función, es incorrecta, o es solo un DML/DDL simple (como SELECT * FROM tabla o CREATE TABLE), indica el error. Describe el error en no más de 10 palabras. No ofrezcas correcciones ni explicaciones adicionales. Sintaxis: ${syntax}`;
 
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: "Eres un experto en SQL. Responde con 'SÍ' o 'NO' seguido de un mensaje breve sobre el error." }] },
+                // INSTRUCCIÓN DEL SISTEMA CORREGIDA:
+                systemInstruction: { parts: [{ text: "Eres un experto en SQL. Responde con 'SÍ' si la sintaxis contiene una función SQL válida. Si no, responde 'NO' seguido de un mensaje breve sobre el error." }] },
             };
             
             let attempts = 0;
@@ -274,7 +280,7 @@
                     return { valid: true, message: '¡Validación exitosa!' };
                 } else {
                     const errorMessage = text.trim().replace(/^NO\.?\s*/i, '', '').trim();
-                    return { valid: false, message: errorMessage || 'Error de sintaxis no especificado.' };
+                    return { valid: false, message: errorMessage || 'Error de sintaxis o no es una función SQL.' };
                 }
             } catch (error) {
                 console.error("Error al validar con IA:", error);
@@ -715,6 +721,7 @@
                         <pre class="whitespace-pre-wrap font-mono text-indigo-800"><code>${sqlCode}</code></pre>
                     </div>
                 `;
+                // Usamos la función original de showMessage para el feedback general
                 showMessage('Consulta SQL generada con éxito.', 'success');
                 
             } catch (error) {
@@ -800,7 +807,7 @@
             document.getElementById('logoutButton').addEventListener('click', logout);
             document.getElementById('addFunctionForm').addEventListener('submit', addOrUpdateFunction);
             
-            // Event Listener para el botón de Generar Consulta SQL (AQUÍ ESTABA EL CAMBIO PRINCIPAL)
+            // Event Listener para el botón de Generar Consulta SQL
             document.getElementById('descriptionSearchButton').addEventListener('click', generateSQLQuery);
             
             document.getElementById('fixButton').addEventListener('click', fixSyntaxWithAI);
