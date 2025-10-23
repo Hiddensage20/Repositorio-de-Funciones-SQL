@@ -257,18 +257,26 @@
             const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`; 
             
-            // PROMPT AJUSTADO para el nuevo flujo de pre-validación
-            const prompt = `Eres un experto en SQL y mentor. Evalúa si la siguiente sintaxis es un ejemplo correcto y útil de una FUNCION SQL (como AVG, CONCAT, o una función de ventana) dentro de una consulta. 
-                            Si la sintaxis es una función SQL válida, responde con: SI:VALIDA
-                            Si la sintaxis NO es una función SQL (por ejemplo, es un DDL o DML simple), analiza la sintaxis y la descripción para sugerir la función SQL más relevante que el usuario debería guardar en el repositorio. 
-                            Responde con: NO:Sugerencia de Función: [Nombre de la Función sugerida]
+            // ************************************************************
+            // ********* PROMPT CORREGIDO: INCLUYE NOMBRE DE LA FUNCIÓN ****
+            // ************************************************************
+            const prompt = `Eres un experto en SQL y mentor. El usuario está intentando guardar una entrada en un repositorio de funciones SQL.
+
+                            1. **Función Intendada:** "${name}"
+                            2. **Descripción:** "${description}"
+                            3. **Sintaxis proporcionada:** "${syntax}"
+
+                            Evalúa si la Sintaxis proporcionada es un ejemplo correcto y útil de una FUNCION SQL (como AVG, CONCAT, o una función de ventana), y si es un buen ejemplo para el repositorio.
+
+                            - Si la Sintaxis es una función SQL válida, responde con: SI:VALIDA
+                            - Si la Sintaxis NO es una función SQL (por ejemplo, es un DDL o DML simple, como SELECT * FROM tabla) o no está directamente relacionada con la Función Intendada, sugiere la FUNCIÓN SQL más relevante que el usuario debería guardar en su lugar, basándote en la Descripción y la Sintaxis.
                             
-                            Descripción del usuario: ${description}
-                            Sintaxis a validar: ${syntax}`;
+                            Responde con: NO:Sugerencia de Función: [Nombre de la Función sugerida]`;
+
 
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: "Responde estrictamente con 'SI:VALIDA' o 'NO:Sugerencia de Función: [FUNCIÓN SUGERIDA]'. No uses comillas ni explicaciones adicionales." }] },
+                systemInstruction: { parts: [{ text: "Responde estrictamente con 'SI:VALIDA' o 'NO:Sugerencia de Función: [FUNCIÓN SUGERIDA]'. No uses comillas ni explicaciones adicionales. Si la sintaxis es un SELECT simple, sugiere una función de agregado (COUNT, AVG, etc.)." }] },
             };
             
             let attempts = 0;
@@ -311,10 +319,11 @@
 
                 if (responseText.startsWith('SI:VALIDA')) {
                     isSyntaxValid = true;
-                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-emerald-800 bg-emerald-200 p-3 rounded-lg">¡Validación exitosa! Puedes guardar la función.</p>`;
+                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-emerald-800 bg-emerald-200 p-3 rounded-lg">¡Validación exitosa! La sintaxis es una función SQL válida. Puedes guardar.</p>`;
                     return { valid: true };
                 } else if (responseText.startsWith('NO:SUGERENCIA DE FUNCIÓN:')) {
                     const suggestion = responseText.replace('NO:SUGERENCIA DE FUNCIÓN:', '').trim();
+                    // El mensaje ahora usará la sugerencia más relevante
                     const userMessage = `Error de sintaxis: Lo que ingresaste no es una función SQL. ¿Intentabas guardar la función **${suggestion}**? Por favor, ajusta la sintaxis y vuelve a validar.`;
                     validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">${userMessage}</p>`;
                     return { valid: false };
@@ -355,8 +364,10 @@
             }
             
             // ************ NUEVA VERIFICACIÓN DE ESTADO ************
+            // Si no estamos editando (es una nueva función), exigimos la pre-validación exitosa.
             if (!isSyntaxValid && !editingId) {
-                showMessage('¡Atención! La sintaxis no ha sido pre-validada o la validación falló. Por favor, usa el botón "Pre-validar" antes de guardar.', 'error');
+                // Muestra el mensaje en el área de validación, no en el área de estado general
+                document.getElementById('validationMessage').innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">¡Atención! La sintaxis no ha sido pre-validada o la validación falló. Usa el botón "Pre-validar" antes de guardar.</p>`;
                 return;
             }
             // ******************************************************
@@ -415,8 +426,8 @@
             document.getElementById('funcSyntax').value = func.syntax;
             document.getElementById('addFunctionButton').textContent = 'Actualizar Función';
             document.getElementById('addFunctionSection').scrollIntoView({ behavior: 'smooth' });
-            document.getElementById('validationMessage').innerHTML = '<p class="mt-2 text-center text-indigo-800 bg-indigo-200 p-3 rounded-lg">Modo Edición: No se requiere pre-validación, pero se recomienda.</p>';
-            isSyntaxValid = true; // Asumimos válido en modo edición, pero el botón de Guardar en modo edición ya no verifica esto.
+            document.getElementById('validationMessage').innerHTML = '<p class="mt-2 text-center text-indigo-800 bg-indigo-200 p-3 rounded-lg">Modo Edición: La validación previa se omite al guardar.</p>';
+            isSyntaxValid = true; 
         };
 
         const deleteFunction = async (id) => {
