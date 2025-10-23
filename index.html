@@ -225,19 +225,24 @@
         };
         
         // ************************************************************
-        // ********* FUNCIÓN DE VALIDACIÓN CORREGIDA ******************
+        // ********* FUNCIÓN DE VALIDACIÓN CORREGIDA CON SUGERENCIA *********
         // ************************************************************
         const validateFunctionWithAI = async (syntax) => {
             const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`; 
             
-            // PROMPT CORREGIDO: Fuerza al modelo a buscar una FUNCIÓN SQL (AVG, CONCAT, etc.), no solo una consulta válida.
-            const prompt = `Eres un experto en SQL. Evalúa si la siguiente sintaxis es un ejemplo correcto y útil de una FUNCION SQL (como AVG, CONCAT, o una función de ventana) dentro de una consulta. Si la sintaxis no es una función, es incorrecta, o es solo un DML/DDL simple (como SELECT * FROM tabla o CREATE TABLE), indica el error. Describe el error en no más de 10 palabras. No ofrezcas correcciones ni explicaciones adicionales. Sintaxis: ${syntax}`;
+            // PROMPT CORREGIDO: Fuerza a buscar una FUNCIÓN y, si no lo es, a SUGERIR una.
+            const prompt = `Eres un experto en SQL. Evalúa si la siguiente sintaxis es un ejemplo correcto y útil de una FUNCION SQL (como AVG, CONCAT, o una función de ventana) dentro de una consulta. 
+                            Si la sintaxis es una función SQL válida, responde con: SI:VALIDA
+                            Si la sintaxis NO es una función SQL (por ejemplo, es un DDL o DML simple), analiza la sintaxis y la descripción para sugerir la función SQL más relevante que el usuario debería guardar en el repositorio. 
+                            Responde con: NO:Sugerencia de Función: [Nombre de la Función sugerida]
+                            
+                            Descripción del usuario: ${document.getElementById('funcDescription').value.trim()}
+                            Sintaxis a validar: ${syntax}`;
 
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
-                // INSTRUCCIÓN DEL SISTEMA CORREGIDA:
-                systemInstruction: { parts: [{ text: "Eres un experto en SQL. Responde con 'SÍ' si la sintaxis contiene una función SQL válida. Si no, responde 'NO' seguido de un mensaje breve sobre el error." }] },
+                systemInstruction: { parts: [{ text: "Responde estrictamente con 'SI:VALIDA' o 'NO:Sugerencia de Función: [FUNCIÓN SUGERIDA]'. No uses comillas ni explicaciones adicionales." }] },
             };
             
             let attempts = 0;
@@ -276,11 +281,18 @@
                 const result = await response.json();
                 const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
                 
-                if (text.trim().toUpperCase().startsWith('SÍ')) {
+                const responseText = text.trim().toUpperCase();
+
+                if (responseText.startsWith('SI:VALIDA')) {
                     return { valid: true, message: '¡Validación exitosa!' };
+                } else if (responseText.startsWith('NO:SUGERENCIA DE FUNCIÓN:')) {
+                    const suggestion = responseText.replace('NO:SUGERENCIA DE FUNCIÓN:', '').trim();
+                    // Mensaje mejorado para el usuario
+                    const userMessage = `La sintaxis que ingresaste no es una función SQL. ¿Intentabas guardar la función **${suggestion}**? Por favor, ingresa la sintaxis de la función.`;
+                    return { valid: false, message: userMessage };
                 } else {
-                    const errorMessage = text.trim().replace(/^NO\.?\s*/i, '', '').trim();
-                    return { valid: false, message: errorMessage || 'Error de sintaxis o no es una función SQL.' };
+                    // Fallback para respuestas inesperadas de la IA
+                    return { valid: false, message: 'La sintaxis no es una función SQL válida. Respuesta de IA no estándar.' };
                 }
             } catch (error) {
                 console.error("Error al validar con IA:", error);
@@ -312,7 +324,8 @@
             const validationResult = await validateFunctionWithAI(syntax);
 
             if (!validationResult.valid) {
-                showMessage(`Error al agregar la información. Hay un error en la sintaxis: ${validationResult.message}`, 'error');
+                // Aquí usamos el mensaje que contiene la sugerencia de la IA.
+                showMessage(`Error al agregar la información. ${validationResult.message}`, 'error');
                 button.textContent = originalButtonText;
                 button.disabled = false;
                 return;
