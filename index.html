@@ -39,8 +39,6 @@
         const FUNCTIONS_PATH = `${DB_ROOT}/sql_functions`;
         const ADMINS_PATH = `${DB_ROOT}/admins`;
         const LOGS_PATH = `${DB_ROOT}/logs`;
-        // NOTIFICATIONS_PATH ya no es necesario como ruta de escritura separada.
-        // Se mantiene para compatibilidad con el código si fuera necesario, pero no se usará para el guardado.
         const NOTIFICATIONS_PATH = `${DB_ROOT}/notifications`; 
 
 
@@ -137,74 +135,24 @@
         };
 
         // ************************************************************
-        // ********* LÓGICA DE NOTIFICACIONES CORREGIDA (LEE DE LOGS) *
+        // ********* FUNCIÓN fetchNotifications VACIADA/REMOVIDA *******
         // ************************************************************
         const fetchNotifications = () => {
-            if (!db || !loggedInUser || !loggedInUser.username) {
-                return;
-            }
-
-            const logsRef = collection(db, LOGS_PATH);
-            // Creamos una consulta para filtrar por el usuario logueado
-            // Ordenamos por timestamp descendente para ver los más recientes primero
-            const logsQuery = query(
-                logsRef, 
-                where("user", "==", loggedInUser.username),
-                orderBy("timestamp", "desc"),
-                limit(10) // Limitamos a los 10 logs más recientes
-            );
-            
-            onSnapshot(logsQuery, (snapshot) => {
-                const notifications = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    let message = '';
-                    if (data.action === 'added') {
-                        message = `Has agregado el comando: "${data.functionName}".`;
-                    } else if (data.action === 'edited') {
-                        message = `Has editado el comando: "${data.functionName}".`;
-                    } else if (data.action === 'deleted') {
-                        message = `Has eliminado el comando: "${data.functionName}".`;
-                    } else {
-                        message = `Acción desconocida en el comando: "${data.functionName}".`;
-                    }
-                    
-                    return {
-                        id: doc.id, 
-                        message: message, 
-                        createdAt: data.timestamp 
-                    };
-                });
-                displayNotifications(notifications);
-            }, (error) => {
-                console.error("Error al obtener notificaciones/logs:", error);
-            });
+            // Ya no intentamos cargar notificaciones en la web
+            console.log("Carga de notificaciones deshabilitada en la interfaz.");
+            return;
         };
 
-        // Estas funciones ahora son innecesarias ya que la lógica de logueo está en addOrUpdateFunction/deleteFunction.
-        // Se dejan como placeholders vacíos.
+        // Estas funciones se mantienen, aunque ya no se usan sus resultados en la web
         const addNotification = async (func) => { /* No hace nada, el log ya se crea en addOrUpdateFunction */ };
         const deleteNotification = async (functionName) => { /* No hace nada, el log ya se crea en deleteFunction */ };
         // **********************************************************************************************
 
         const displayNotifications = (notifications) => {
             const notificationsList = document.getElementById('notificationsList');
-            if (!notificationsList) return;
-            
-            notificationsList.innerHTML = '';
-            
-            if (notifications.length === 0) {
-                notificationsList.innerHTML = '<p class="text-center text-gray-500 text-sm py-2">No hay notificaciones (logs de actividad).</p>';
-                return;
+            if (notificationsList) {
+                notificationsList.innerHTML = '<p class="text-center text-gray-500 text-sm py-2">Panel de notificaciones inactivo.</p>';
             }
-
-            notifications.forEach(notif => {
-                const date = notif.createdAt ? new Date(notif.createdAt.toDate()).toLocaleString() : 'Fecha desconocida';
-                const notifItem = document.createElement('div');
-                notifItem.className = 'bg-indigo-200 p-3 rounded-md mb-2';
-                notifItem.innerHTML = `<p class="text-indigo-800 text-sm">${notif.message}</p>
-                                        <span class="text-xs text-indigo-600">${date}</span>`;
-                notificationsList.appendChild(notifItem);
-            });
         };
 
         const displayFunctions = (functionsToDisplay = functionsList) => {
@@ -582,7 +530,7 @@
                 document.getElementById('addFunctionSection').classList.add('hidden');
                 document.getElementById('fixErrorSection').classList.add('hidden');
                 document.getElementById('adminManagementSection').classList.add('hidden');
-                document.getElementById('notificationsSection').classList.add('hidden');
+                document.getElementById('notificationsSection').classList.add('hidden'); // Ocultar
                 document.getElementById('logoutButton').classList.add('hidden');
                 document.getElementById('welcomeMessage').classList.add('hidden');
 
@@ -670,10 +618,9 @@
 
                 // Mostrar secciones de administración
                 document.getElementById('adminManagementSection').classList.remove('hidden');
-                document.getElementById('notificationsSection').classList.remove('hidden');
+                // document.getElementById('notificationsSection').classList.remove('hidden'); <-- Ya no se muestra
                 
-                // ********** CARGAR NOTIFICACIONES (LEYENDO DE LOGS) **********
-                fetchNotifications(); 
+                // fetchNotifications(); <-- Ya no se llama
 
                 // Actualizar log y mensaje de bienvenida
                 const userDataRef = doc(db, ADMINS_PATH, loggedInUser.uid);
@@ -750,7 +697,7 @@
                 welcomeMessageDiv.textContent = text;
             } catch (error) {
                 console.error("Error al generar el mensaje de bienvenida:", error);
-                welcomeMessageDiv.textContent = `¡Bienvenido de nuevo, ${username}! Te recordamos que revises el panel de notificaciones. ¡Buen código!`;
+                welcomeMessageDiv.textContent = `¡Bienvenido de nuevo, ${username}! Te recordamos que revises el panel de logs. ¡Buen código!`;
             }
         };
         
@@ -986,12 +933,11 @@
             </main>
             
             <section id="notificationsSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 hidden">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900">Notificaciones del Administrador</h2>
+                <h2 class="text-2xl font-bold mb-4 text-gray-900">Notificaciones del Administrador (Deshabilitado)</h2>
                 <div id="notificationsList" class="max-h-64 overflow-y-auto bg-gray-50 p-3 rounded-lg border border-indigo-300">
-                    <p class="text-center text-gray-500 text-sm py-2">No hay notificaciones.</p>
+                    <p class="text-center text-gray-500 text-sm py-2">Esta funcionalidad está deshabilitada en la interfaz. La actividad se registra en Firestore Logs.</p>
                 </div>
             </section>
-
             <section id="fixErrorSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 hidden">
                 <h2 class="text-2xl font-bold mb-4 text-gray-900">Corregir y Optimizar SQL con IA</h2>
                 <div class="mb-4">
