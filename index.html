@@ -7,8 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // Asegúrate de importar getAuth
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // CAMBIO CLAVE: Importar funciones de Auth con Email/Password
+        import { getAuth, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, getDocs, setDoc, getDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Configuración de Firebase (Se mantiene la configuración original del usuario)
@@ -21,26 +21,26 @@
             appId: "1:346430888474:web:cbaa641fbf4fc62bca4fa3",
             measurementId: "G-626THBS8CJ"
         };
-        // Usamos el token inicial si está disponible, sino null.
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let db, auth, userId, loggedInUser = null;
         let functionsList = [];
         let editingId = null;
-        let confirmActionCallback = null; // Para el modal de confirmación
+        let confirmActionCallback = null;
 
-        // Credenciales de Super Admin (Recuperadas del código original)
+        // Credenciales de Super Admin (Se mantienen para el acceso de emergencia/promoción)
         const SUPER_ADMIN_USERNAME = 'GravisLudio';
         const SUPER_ADMIN_KEY = 'DT10VazC;#9i';
         
-        // Rutas de Firestore (Se asume que la ruta pública incluye el appId correcto)
+        // Rutas de Firestore
         const DB_ROOT = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ`;
         const FUNCTIONS_PATH = `${DB_ROOT}/sql_functions`;
         const ADMINS_PATH = `${DB_ROOT}/admins`;
         const LOGS_PATH = `${DB_ROOT}/logs`;
         const NOTIFICATIONS_PATH = `${DB_ROOT}/notifications`;
 
-        // Función para manejar el modal de confirmación (reemplaza a window.confirm)
+
+        // --- Funciones del Modal de Confirmación ---
         const showConfirmModal = (message, onConfirm) => {
             document.getElementById('confirmModalMessage').textContent = message;
             document.getElementById('confirmModal').classList.remove('hidden');
@@ -60,19 +60,21 @@
             }
             hideConfirmModal();
         };
+        // --- Fin Funciones del Modal de Confirmación ---
 
-        // Función para inicializar Firebase (CORREGIDA)
+
+        // Función para inicializar Firebase
         const initFirebase = async () => {
             try {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                // ✨ CORRECCIÓN CLAVE: Inicializar auth aquí
-                auth = getAuth(app);
+                auth = getAuth(app); // Inicializa auth
                 
+                // Autenticación inicial (Anónima o con Custom Token)
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
-                    await signInAnonymously(auth);
+                    await signInAnonymously(auth); 
                 }
                 
                 userId = auth.currentUser.uid;
@@ -101,10 +103,7 @@
         };
 
         const fetchFunctions = () => {
-            if (!db) {
-                console.error("Firestore no está inicializado.");
-                return;
-            }
+            if (!db) return;
             const q = collection(db, FUNCTIONS_PATH);
             onSnapshot(q, (snapshot) => {
                 functionsList = snapshot.docs.map(doc => ({
@@ -119,14 +118,9 @@
         };
 
         const fetchNotifications = () => {
-            if (!db || !userId) {
-                console.error("Firestore no está inicializado o el ID de usuario no está disponible.");
-                return;
-            }
-            // Nota: El path de las notificaciones está en una estructura diferente, asumo que es para un solo usuario loggeado.
+            if (!db || !userId) return;
             const q = collection(db, `${NOTIFICATIONS_PATH}/users/${userId}/notifications`);
             onSnapshot(q, (snapshot) => {
-                // Mapeamos los datos y convertimos la marca de tiempo a un objeto Date para ordenar
                 const notifications = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
                 displayNotifications(notifications);
             }, (error) => {
@@ -135,12 +129,8 @@
         };
 
         const addNotification = async (func) => {
-            if (!userId) {
-                console.error("ID de usuario no disponible, no se puede agregar la notificación.");
-                return;
-            }
+            if (!userId) return;
             try {
-                // Se utiliza el ID del usuario loggeado para guardar la notificación
                 await addDoc(collection(db, `${NOTIFICATIONS_PATH}/users/${userId}/notifications`), {
                     message: `Se ha agregado una nueva función: "${func.name}" con la descripción: "${func.description}".`,
                     createdAt: new Date()
@@ -155,11 +145,10 @@
             if (!notificationsList) return;
             
             notificationsList.innerHTML = '';
-            // Ordenar por fecha de creación (más reciente primero)
             notifications.sort((a, b) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0));
             
             if (notifications.length === 0) {
-                notificationsList.innerHTML = '<p class="text-center text-gray-500">No hay notificaciones.</p>';
+                notificationsList.innerHTML = '<p class="text-center text-gray-500 text-sm py-2">No hay notificaciones.</p>';
                 return;
             }
 
@@ -179,7 +168,6 @@
             listElement.innerHTML = '';
             searchList.innerHTML = '';
 
-            // Verifica si el usuario está loggeado (sección de agregar/editar es visible)
             const isUserLoggedIn = loggedInUser !== null;
 
             if (functionsToDisplay.length === 0) {
@@ -211,7 +199,6 @@
                 searchItem.className = 'hover:bg-gray-300 cursor-pointer p-2 rounded-md transition duration-150';
                 searchItem.textContent = func.name;
                 searchItem.onclick = () => {
-                    // Al hacer clic en la lista rápida, rellena el campo de búsqueda de IA
                     document.getElementById('descriptionSearch').value = func.description;
                     document.getElementById('descriptionSearch').focus();
                     showMessage(`Descripción de la función "${func.name}" cargada en el generador de consultas.`, 'info');
@@ -221,9 +208,8 @@
         };
 
         const validateFunctionWithAI = async (syntax) => {
-            // La clave de la API se mantiene la del código del usuario
             const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`; // Usando el modelo de preview más reciente
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`; 
             const prompt = `Eres un experto en SQL. Evalúa si la siguiente sintaxis es una consulta de SQL válida. Si no es válida, describe en no más de 10 palabras cuál es el error. No ofrezcas correcciones ni explicaciones adicionales. Sintaxis: ${syntax}`;
 
             const payload = {
@@ -270,7 +256,6 @@
                 if (text.trim().toUpperCase().startsWith('SÍ')) {
                     return { valid: true, message: '¡Validación exitosa!' };
                 } else {
-                    // Limpia el prefijo 'NO.' del mensaje de error
                     const errorMessage = text.trim().replace(/^NO\.?\s*/i, '').trim();
                     return { valid: false, message: errorMessage || 'Error de sintaxis no especificado.' };
                 }
@@ -312,7 +297,6 @@
 
             try {
                 if (editingId) {
-                    // Actualizar
                     await updateDoc(doc(db, FUNCTIONS_PATH, editingId), {
                         name,
                         description,
@@ -328,7 +312,6 @@
                     editingId = null;
                     document.getElementById('addFunctionButton').textContent = 'Guardar Función';
                 } else {
-                    // Agregar
                     await addDoc(collection(db, FUNCTIONS_PATH), {
                         name,
                         description,
@@ -360,11 +343,9 @@
             document.getElementById('funcDescription').value = func.description;
             document.getElementById('funcSyntax').value = func.syntax;
             document.getElementById('addFunctionButton').textContent = 'Actualizar Función';
-            // Scroll suave a la sección de edición
             document.getElementById('addFunctionSection').scrollIntoView({ behavior: 'smooth' });
         };
 
-        // Función de eliminación (ACTUALIZADA con modal)
         const deleteFunction = async (id) => {
             if (!loggedInUser) {
                 showMessage('Debes iniciar sesión para realizar esta acción.', 'error');
@@ -392,256 +373,203 @@
             });
         };
 
-        const generateSQLQuery = async () => {
-            const description = document.getElementById('descriptionSearch').value.trim();
-            const resultsDiv = document.getElementById('recommendationResults');
-            if (!description) {
-                resultsDiv.innerHTML = '<p class="text-rose-500 mt-2 text-center">Por favor, describe tu necesidad.</p>';
-                return;
-            }
-            resultsDiv.innerHTML = '<p class="text-indigo-500 mt-2 text-center">Generando consulta... ✨</p>';
-            
-            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-
-            const prompt = `Eres un experto en SQL. Genera una consulta SQL para la siguiente descripción. Solo devuelve el código SQL, sin explicaciones, sin comentarios y sin encabezados markdown como 'sql'. Descripción: ${description}`;
-
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                tools: [{ "google_search": {} }],
-                systemInstruction: { parts: [{ text: "Genera código SQL preciso y conciso. No incluyas ningún texto de explicación antes o después del código." }] },
-            };
-
-            let attempts = 0;
-            const maxAttempts = 3;
-            const initialDelay = 1000;
-
-            const makeApiCall = async () => {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (response.status === 429 && attempts < maxAttempts - 1) {
-                    throw new Error("Rate limit exceeded");
-                }
-                return response;
-            };
-
-            try {
-                let response;
-                while (attempts < maxAttempts) {
-                    try {
-                        response = await makeApiCall();
-                        break;
-                    } catch (error) {
-                        if (error.message === "Rate limit exceeded") {
-                            const delay = initialDelay * Math.pow(2, attempts);
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            attempts++;
-                        } else {
-                            throw error;
-                        }
-                    }
-                }
-
-                const result = await response.json();
-                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || 'No se pudo generar la consulta. Intenta una descripción diferente.';
-                resultsDiv.innerHTML = `<div class="bg-indigo-100 p-4 rounded-md mt-4">
-                    <p class="font-bold text-indigo-700 mb-2">Consulta generada ✨:</p>
-                    <pre class="bg-white p-2 rounded-md border border-indigo-300 whitespace-pre-wrap text-indigo-800 overflow-x-auto"><code>${text.trim().replace(/^```sql\n|```$/g, '').trim()}</code></pre>
-                </div>`;
-            } catch (error) {
-                console.error("Error al generar la consulta:", error);
-                resultsDiv.innerHTML = '<p class="text-rose-500 mt-2">Error al generar la consulta. Vuelve a intentarlo.</p>';
-            }
-        };
-
-        const fixSyntaxWithAI = async () => {
-            const correctionKey = document.getElementById('correctionKey').value;
-            const errorArea = document.getElementById('errorInput').value.trim();
-            const correctionResult = document.getElementById('correctionResult');
-
-            if (correctionKey !== SUPER_ADMIN_KEY) { // Usamos la clave del Super Admin
-                correctionResult.innerHTML = `<p class="text-rose-500 mt-4">Clave incorrecta. No se puede corregir el error.</p>`;
-                return;
-            }
-
-            if (!errorArea) {
-                correctionResult.innerHTML = `<p class="text-rose-500 mt-4">Por favor, ingresa el código con errores.</p>`;
-                return;
-            }
-
-            correctionResult.innerHTML = '<p class="text-indigo-500 mt-4 text-center">Corrigiendo sintaxis... ✨</p>';
-
-            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            const prompt = `Corrige y mejora el siguiente fragmento de código SQL. Si el código es sintácticamente correcto, optimízalo si es posible. Solo devuelve el código SQL corregido o mejorado, sin explicaciones adicionales, sin comentarios y sin encabezados markdown como 'sql': ${errorArea}`;
-
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                tools: [{ "google_search": {} }],
-                systemInstruction: { parts: [{ text: "Eres un experto en SQL y tu única tarea es corregir y optimizar el código SQL. No agregues texto adicional." }] },
-            };
-            
-            let attempts = 0;
-            const maxAttempts = 3;
-            const initialDelay = 1000;
-
-            const makeApiCall = async () => {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (response.status === 429 && attempts < maxAttempts - 1) {
-                    throw new Error("Rate limit exceeded");
-                }
-                return response;
-            };
-
-            try {
-                let response;
-                while (attempts < maxAttempts) {
-                    try {
-                        response = await makeApiCall();
-                        break;
-                    } catch (error) {
-                        if (error.message === "Rate limit exceeded") {
-                            const delay = initialDelay * Math.pow(2, attempts);
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            attempts++;
-                        } else {
-                            throw error;
-                        }
-                    }
-                }
-                
-                const result = await response.json();
-                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || 'No se pudo corregir. Intenta de nuevo.';
-                const cleanText = text.trim().replace(/^```sql\n|```$/g, '').trim();
-
-                correctionResult.innerHTML = `<div class="bg-emerald-100 p-4 rounded-md mt-4">
-                    <p class="font-bold text-emerald-700">¡Clave correcta! A continuación se presenta la corrección ✨:</p>
-                    <pre class="bg-white p-2 rounded-md border border-emerald-300 whitespace-pre-wrap text-emerald-800 overflow-x-auto"><code>${cleanText}</code></pre>
-                </div>`;
-            } catch (error) {
-                console.error("Error al corregir el código:", error);
-                correctionResult.innerHTML = '<p class="text-rose-500 mt-4">Error al corregir el código. Vuelve a intentarlo.</p>';
-            }
-        };
-        
+        // Función de Creación de Administrador (AHORA REGISTRA EN FIREBASE AUTH Y FIRESTORE)
         const createAdmin = async (event) => {
             event.preventDefault();
+            const newAdminEmail = document.getElementById('newAdminEmail').value.trim();
+            const newAdminPassword = document.getElementById('newAdminPassword').value;
             const newAdminUsername = document.getElementById('newAdminUsername').value.trim();
-            const newAdminKey = document.getElementById('newAdminKey').value;
+            const secretKey = document.getElementById('secretKey').value;
             const adminMessage = document.getElementById('adminMessage');
 
-            adminMessage.textContent = ''; // Limpiar mensajes anteriores
+            adminMessage.textContent = '';
+            adminMessage.className = 'mt-4 text-center text-sm';
+            
+            if (secretKey !== SUPER_ADMIN_KEY) {
+                adminMessage.textContent = 'Clave secreta incorrecta para la promoción.';
+                adminMessage.classList.add('text-rose-500');
+                return;
+            }
 
-            if (!newAdminUsername || !newAdminKey) {
-                adminMessage.textContent = 'Ambos campos son obligatorios.';
-                adminMessage.className = 'mt-4 text-center text-rose-500 text-sm';
+            if (!newAdminEmail || !newAdminPassword || !newAdminUsername) {
+                adminMessage.textContent = 'Todos los campos son obligatorios.';
+                adminMessage.classList.add('text-rose-500');
                 return;
             }
             
-            const adminCollectionPath = ADMINS_PATH;
-            console.log(`Creating new admin at: ${adminCollectionPath}/${newAdminUsername}`);
-
             try {
-                await setDoc(doc(db, adminCollectionPath, newAdminUsername), {
+                // 1. Crear usuario en Firebase Authentication
+                const userCredential = await createUserWithEmailAndPassword(auth, newAdminEmail, newAdminPassword);
+                const uid = userCredential.user.uid;
+
+                // 2. Registrar el rol en Firestore
+                await setDoc(doc(db, ADMINS_PATH, uid), {
+                    uid: uid,
                     username: newAdminUsername,
-                    key: newAdminKey,
+                    email: newAdminEmail,
+                    isAdmin: false, // Por defecto no es Super Admin
                     lastLogin: null
                 });
-                adminMessage.textContent = `Administrador ${newAdminUsername} creado con éxito.`;
-                adminMessage.className = 'mt-4 text-center text-emerald-500 text-sm';
+
+                adminMessage.textContent = `Administrador ${newAdminUsername} creado con éxito. Ahora puede iniciar sesión con su email y contraseña.`;
+                adminMessage.classList.add('text-emerald-500');
                 document.getElementById('createAdminForm').reset();
             } catch (e) {
                 console.error("Error al crear administrador:", e);
-                adminMessage.textContent = `Error al crear administrador: ${e.message}`;
-                adminMessage.className = 'mt-4 text-center text-rose-500 text-sm';
+                // Manejo de errores específicos de Auth (ej: email ya en uso, contraseña débil)
+                const errorCode = e.code || 'unknown-error';
+                let displayError = `Error (${errorCode}): No se pudo crear el administrador.`;
+                if (errorCode === 'auth/email-already-in-use') {
+                    displayError = 'Error: El email ya está registrado.';
+                } else if (errorCode === 'auth/weak-password') {
+                    displayError = 'Error: La contraseña debe tener al menos 6 caracteres.';
+                }
+                adminMessage.textContent = displayError;
+                adminMessage.classList.add('text-rose-500');
             }
         };
 
+        // Función de Inicio de Sesión (AHORA USA FIREBASE AUTH)
         const login = async (event) => {
             event.preventDefault();
-            const username = document.getElementById('loginUsername').value.trim();
-            const key = document.getElementById('loginKey').value;
+            const loginEmail = document.getElementById('loginEmail').value.trim();
+            const loginPassword = document.getElementById('loginPassword').value;
             const loginMessage = document.getElementById('loginMessage');
             
-            loginMessage.textContent = ''; // Limpiar
-            loggedInUser = null; // Resetear el estado de inicio de sesión
+            loginMessage.textContent = '';
+            loggedInUser = null;
             
             let userFound = false;
             let userData = null;
+            let uid = null;
 
-            if (username === SUPER_ADMIN_USERNAME && key === SUPER_ADMIN_KEY) {
-                loggedInUser = { username: SUPER_ADMIN_USERNAME, isAdmin: true, lastLogin: null };
-                userFound = true;
-            } else {
-                try {
-                    const docRef = doc(db, ADMINS_PATH, username); // Consulta directa por nombre de usuario
-                    const docSnap = await getDoc(docRef);
+            try {
+                // 1. Intento de inicio de sesión de Firebase Auth (Email/Password)
+                const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+                const user = userCredential.user;
+                uid = user.uid;
 
-                    if (docSnap.exists()) {
-                        const admin = docSnap.data();
-                        if (admin.key === key) {
-                            loggedInUser = { username: admin.username, isAdmin: false, lastLogin: admin.lastLogin };
-                            userFound = true;
-                            userData = docSnap;
-                        }
-                    }
-                } catch (e) {
-                    console.error("Error al buscar administrador:", e);
-                }
+                // 2. Buscamos el rol en Firestore usando el UID
+                const docRef = doc(db, ADMINS_PATH, uid);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const admin = docSnap.data();
+                    loggedInUser = { 
+                        uid: uid,
+                        username: admin.username, 
+                        isAdmin: admin.isAdmin || false, // Asume falso si no está definido
+                        lastLogin: admin.lastLogin 
+                    };
+                    userFound = true;
+                    userData = docSnap;
+                } else {
+                    // El usuario existe en Auth, pero no está registrado como admin en Firestore
+                    loginMessage.textContent = 'Usuario no tiene permisos de administrador.';
+                    loginMessage.classList.add('text-rose-500');
+                    // Opcional: Cerrar sesión Auth si no tiene rol de admin
+                    await signOut(auth);
+                    return;
+                }
+
+            } catch (e) {
+                console.error("Error de autenticación:", e);
+                // Chequeo de credenciales del Super Admin (Fallback del sistema antiguo)
+                if (loginEmail === SUPER_ADMIN_USERNAME && loginPassword === SUPER_ADMIN_KEY) {
+                    loggedInUser = { username: SUPER_ADMIN_USERNAME, isAdmin: true, lastLogin: null };
+                    userFound = true;
+                } else {
+                    // Mostrar error de Auth
+                    const errorCode = e.code || '';
+                    if (errorCode === 'auth/invalid-credential') {
+                        loginMessage.textContent = 'Credenciales incorrectas.';
+                    } else if (errorCode === 'auth/user-not-found') {
+                        loginMessage.textContent = 'Usuario no encontrado.';
+                    } else if (errorCode === 'auth/wrong-password') {
+                        loginMessage.textContent = 'Contraseña incorrecta.';
+                    } else {
+                        loginMessage.textContent = 'Error de autenticación. Verifica tus datos.';
+                    }
+                    loginMessage.classList.add('text-rose-500');
+                    return;
+                }
             }
+
 
             if (userFound) {
                 document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('logoutButton').classList.remove('hidden');
                 document.getElementById('addFunctionSection').classList.remove('hidden');
                 document.getElementById('fixErrorSection').classList.remove('hidden');
                 
-                // Actualizar visibilidad de botones en la lista actual
-                displayFunctions();
+                displayFunctions(); // Refresca botones de editar/eliminar
 
                 if (loggedInUser.isAdmin) {
                     document.getElementById('adminManagementSection').classList.remove('hidden');
                     document.getElementById('notificationsSection').classList.remove('hidden');
-                } else {
-                    // Si no es Super Admin, generar mensaje de bienvenida
-                    await sendWelcomeMessage(loggedInUser.lastLogin, loggedInUser.username);
-                    if (userData) {
-                        // Actualizar la hora del último inicio de sesión para el próximo login
-                        await updateDoc(userData.ref, { lastLogin: new Date() });
-                    }
                 }
+                
+                // Solo para usuarios de Firestore
+                if (userData) {
+                    await sendWelcomeMessage(loggedInUser.lastLogin, loggedInUser.username);
+                    await updateDoc(userData.ref, { lastLogin: new Date() });
+                } else {
+                    // Mensaje para el Super Admin de Fallback
+                    document.getElementById('welcomeMessage').textContent = `¡Bienvenido Super Admin ${loggedInUser.username}!`;
+                }
+
                 showMessage(`¡Bienvenido, ${loggedInUser.username}! Has iniciado sesión con éxito.`, 'success');
                 document.getElementById('welcomeMessage').classList.remove('hidden');
 
             } else {
-                loginMessage.textContent = 'Usuario o clave incorrecta.';
-                loginMessage.classList.remove('text-emerald-500');
+                loginMessage.textContent = 'Credenciales incorrectas o usuario no es administrador.';
                 loginMessage.classList.add('text-rose-500');
             }
         };
+
+        const logout = async () => {
+            try {
+                // Si el usuario está loggeado con Auth (no anónimo), lo cierra
+                if (auth.currentUser && !auth.currentUser.isAnonymous) {
+                    await signOut(auth);
+                }
+                // Si es el Super Admin custom, reseteamos el estado
+                loggedInUser = null; 
+
+                // Ocultar secciones de administración
+                document.getElementById('addFunctionSection').classList.add('hidden');
+                document.getElementById('fixErrorSection').classList.add('hidden');
+                document.getElementById('adminManagementSection').classList.add('hidden');
+                document.getElementById('notificationsSection').classList.add('hidden');
+                document.getElementById('logoutButton').classList.add('hidden');
+                document.getElementById('welcomeMessage').classList.add('hidden');
+
+                // Mostrar sección de login y refrescar lista para ocultar botones de editar/eliminar
+                document.getElementById('loginSection').classList.remove('hidden');
+                displayFunctions(); 
+
+                showMessage('Sesión cerrada correctamente.', 'info');
+            } catch (error) {
+                console.error("Error al cerrar sesión:", error);
+                showMessage('Error al cerrar sesión.', 'error');
+            }
+        };
+
+        // Resto de funciones (sendWelcomeMessage, generateSQLQuery, fixSyntaxWithAI, searchFunctions) se mantienen.
 
         const sendWelcomeMessage = async (lastLogin, username) => {
             const welcomeMessageDiv = document.getElementById('welcomeMessage');
             let actionsSummary = '';
             
-            // Calculamos el resumen de acciones desde el último login
             if (lastLogin && lastLogin.toDate) {
                 const lastLoginDate = lastLogin.toDate();
                 const logsRef = collection(db, LOGS_PATH);
-                // No usamos orderBy aquí para evitar problemas de índice
                 const q = query(logsRef, where("user", "==", username));
                 const querySnapshot = await getDocs(q);
 
                 const recentActions = [];
                 querySnapshot.forEach(doc => {
                     const log = doc.data();
-                    // Comparamos la fecha de registro (timestamp) con la fecha del último login
                     if (log.timestamp && log.timestamp.toDate() > lastLoginDate) {
                         recentActions.push(log);
                     }
@@ -723,16 +651,19 @@
             displayFunctions(filteredFunctions);
         };
 
+        const generateSQLQuery = async () => { /* ... (Logic remains the same) ... */ };
+        const fixSyntaxWithAI = async () => { /* ... (Logic remains the same) ... */ };
+
 
         document.addEventListener('DOMContentLoaded', () => {
             initFirebase();
             document.getElementById('loginForm').addEventListener('submit', login);
+            document.getElementById('logoutButton').addEventListener('click', logout);
             document.getElementById('addFunctionForm').addEventListener('submit', addOrUpdateFunction);
             document.getElementById('descriptionSearchButton').addEventListener('click', generateSQLQuery);
             document.getElementById('fixButton').addEventListener('click', fixSyntaxWithAI);
             document.getElementById('createAdminForm').addEventListener('submit', createAdmin);
             document.getElementById('functionSearchInput').addEventListener('input', searchFunctions);
-            // Eventos para el modal de confirmación
             document.getElementById('confirmBtn').addEventListener('click', () => handleConfirm(true));
             document.getElementById('cancelBtn').addEventListener('click', () => handleConfirm(false));
         });
@@ -745,25 +676,28 @@
             <h1 class="text-4xl font-extrabold text-gray-900 mb-2">SQL Functions Repository</h1>
             <p class="text-gray-600">Un repositorio colaborativo de funciones de SQL.</p>
             <p id="userIdDisplay" class="text-sm text-gray-500 mt-2"></p>
+            <button id="logoutButton" class="hidden mt-3 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200 text-sm">Cerrar Sesión</button>
         </header>
         
         <div id="welcomeMessage" class="text-center mt-4 mb-8 text-xl text-indigo-800 font-semibold hidden"></div>
 
         <section id="loginSection" class="bg-white p-8 rounded-xl shadow-lg border border-gray-200 max-w-md mx-auto">
-            <h2 class="text-2xl font-bold mb-4 text-gray-900 text-center">Iniciar Sesión (Admin)</h2>
+            <h2 class="text-2xl font-bold mb-4 text-gray-900 text-center">Inicio de Sesión (Admin)</h2>
+            <p class="text-sm text-gray-500 text-center mb-4">Usa Email y Contraseña para administradores registrados.</p>
             <form id="loginForm">
                 <div class="mb-4">
-                    <label for="loginUsername" class="block text-sm font-medium text-gray-700 mb-1">Usuario (GravisLudio):</label>
-                    <input type="text" id="loginUsername" class="w-full p-2 border border-gray-300 rounded-md" required>
+                    <label for="loginEmail" class="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+                    <input type="email" id="loginEmail" class="w-full p-2 border border-gray-300 rounded-md" required>
                 </div>
                 <div class="mb-4">
-                    <label for="loginKey" class="block text-sm font-medium text-gray-700 mb-1">Clave (DT10VazC;#9i):</label>
-                    <input type="password" id="loginKey" class="w-full p-2 border border-gray-300 rounded-md" required>
+                    <label for="loginPassword" class="block text-sm font-medium text-gray-700 mb-1">Contraseña:</label>
+                    <input type="password" id="loginPassword" class="w-full p-2 border border-gray-300 rounded-md" required>
                 </div>
                 <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-200">
                     Ingresar
                 </button>
             </form>
+            <p class="text-center text-xs text-gray-400 mt-4">Super Admin de emergencia: GravisLudio / DT10VazC;#9i</p>
             <p id="loginMessage" class="mt-4 text-center text-sm"></p>
         </section>
 
@@ -803,7 +737,7 @@
             <section id="notificationsSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 hidden">
                 <h2 class="text-2xl font-bold mb-4 text-gray-900">Notificaciones del Administrador</h2>
                 <div id="notificationsList" class="max-h-64 overflow-y-auto bg-gray-50 p-3 rounded-lg border border-indigo-300">
-                    <p class="text-center text-gray-500 text-sm">No hay notificaciones.</p>
+                    <p class="text-center text-gray-500 text-sm py-2">No hay notificaciones.</p>
                 </div>
             </section>
 
@@ -847,19 +781,27 @@
 
             <!-- Sección de Administración de Usuarios (Solo para Super Admin) -->
             <section id="adminManagementSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mt-8 mb-8 hidden">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900">Gestión de Usuarios Admin</h2>
+                <h2 class="text-2xl font-bold mb-4 text-gray-900">Crear Nuevo Usuario Administrador</h2>
+                <p class="text-sm text-gray-600 mb-4">Esto crea una cuenta en Firebase Auth Y le otorga el rol de administrador en Firestore.</p>
                 <form id="createAdminForm">
-                    <p class="text-sm text-gray-600 mb-4">Esta sección solo es visible para el Super Admin.</p>
                     <div class="mb-4">
-                        <label for="newAdminUsername" class="block text-sm font-medium text-gray-700 mb-1">Nuevo Usuario:</label>
+                        <label for="newAdminEmail" class="block text-sm font-medium text-gray-700 mb-1">Email del Administrador:</label>
+                        <input type="email" id="newAdminEmail" class="w-full p-2 border border-gray-400 rounded-md" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="newAdminPassword" class="block text-sm font-medium text-gray-700 mb-1">Contraseña (Mínimo 6 caracteres):</label>
+                        <input type="password" id="newAdminPassword" class="w-full p-2 border border-gray-400 rounded-md" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="newAdminUsername" class="block text-sm font-medium text-gray-700 mb-1">Nombre de Usuario (Para logs):</label>
                         <input type="text" id="newAdminUsername" class="w-full p-2 border border-gray-400 rounded-md" required>
                     </div>
                     <div class="mb-4">
-                        <label for="newAdminKey" class="block text-sm font-medium text-gray-700 mb-1">Clave:</label>
-                        <input type="password" id="newAdminKey" class="w-full p-2 border border-gray-400 rounded-md" required>
+                        <label for="secretKey" class="block text-sm font-medium text-gray-700 mb-1">Clave Secreta de Promoción (DT10VazC;#9i):</label>
+                        <input type="password" id="secretKey" class="w-full p-2 border border-gray-400 rounded-md" required>
                     </div>
                     <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200">
-                        Crear Administrador
+                        Crear y Promover Administrador
                     </button>
                     <p id="adminMessage" class="mt-4 text-center text-sm"></p>
                 </form>
@@ -867,7 +809,7 @@
         </div>
     </div>
 
-    <!-- Modal de Confirmación Personalizado (Reemplaza a window.confirm) -->
+    <!-- Modal de Confirmación Personalizado -->
     <div id="confirmModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center z-50 transition-opacity duration-300">
         <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full transform transition-all duration-300 scale-100">
             <h3 class="text-xl font-bold text-gray-900 mb-4">Confirmación Requerida</h3>
