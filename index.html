@@ -52,137 +52,124 @@
         }
     </style>
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // Importaciones de Firebase se mantienen igual
-        import { getAuth, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, getDocs, setDoc, getDoc, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, getDocs, setDoc, getDoc, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Configuración de Firebase (Se mantiene la configuración original del usuario)
-        const firebaseConfig = {
-            apiKey: "AIzaSyCeD4TAPK2GuW01J5WQl7vJjmJWC671f-Y",
-            authDomain: "codigograbado.firebaseapp.com",
-            projectId: "codigograbado",
-            storageBucket: "codigograbado.firebasestorage.app",
-            messagingSenderId: "346430888474",
-            appId: "1:346430888474:web:cbaa641fbf4fc62bca4fa3",
-            measurementId: "G-626THBS8CJ"
-        };
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // Configuración de Firebase (Se mantiene la configuración original del usuario)
+        const firebaseConfig = {
+            apiKey: "AIzaSyCeD4TAPK2GuW01J5WQl7vJjmJWC671f-Y",
+            authDomain: "codigograbado.firebaseapp.com",
+            projectId: "codigograbado",
+            storageBucket: "codigograbado.firebasestorage.app",
+            messagingSenderId: "346430888474",
+            appId: "1:346430888474:web:cbaa641fbf4fc62bca4fa3",
+            measurementId: "G-626THBS8CJ"
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        let db, auth, userId, loggedInUser = null;
-        let functionsList = [];
-        let editingId = null;
-        let confirmActionCallback = null;
-        
-        let isSyntaxValid = false; 
+        let db, auth, userId, loggedInUser = null;
+        let functionsList = [];
+        let editingId = null;
+        let confirmActionCallback = null;
+        
+        let isSyntaxValid = false; 
 
-        // SE ELIMINAN LAS CREDENCIALES CODIFICADAS DEL SUPER ADMIN
-        const SUPER_ADMIN_KEY = 'DT10VazC;#9i'; // Clave Mantenida SOLO para PROMOCIÓN, no para LOGIN
-        
-        // Rutas de Firestore
-        const DB_ROOT = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ`;
-        const FUNCTIONS_PATH = `${DB_ROOT}/sql_functions`;
-        const ADMINS_PATH = `${DB_ROOT}/admins`;
-        const LOGS_PATH = `${DB_ROOT}/logs`;
-        const NOTIFICATIONS_PATH = `${DB_ROOT}/notifications`; 
-
-
-        // ************************************************************
-        // ********* FUNCIÓN DE MANEJO DE TEMAS ***********************
-        // ************************************************************
-        const initializeTheme = () => {
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            let isDark = localStorage.getItem('darkMode') === 'true';
-
-            if (localStorage.getItem('darkMode') === null) {
-                isDark = prefersDark;
-            }
-
-            if (isDark) {
-                document.body.classList.add('dark');
-                document.getElementById('darkModeToggle').checked = true;
-            } else {
-                document.body.classList.remove('dark');
-                document.getElementById('darkModeToggle').checked = false;
-            }
-            applyTailwindClasses(isDark);
-        };
-
-        const applyTailwindClasses = (isDark) => {
-             const body = document.body;
-             
-             // Base body color
-             body.classList.toggle('bg-gray-100', !isDark);
-             body.classList.toggle('bg-gray-800', isDark);
-             body.classList.toggle('text-gray-800', !isDark);
-             body.classList.toggle('text-gray-100', isDark);
-
-             // Cards/Sections (bg-white -> bg-gray-700)
-             document.querySelectorAll('section, header, #adminLoginModal > div').forEach(el => {
-                el.classList.toggle('bg-white', !isDark);
-                el.classList.toggle('bg-gray-700', isDark);
-                el.classList.toggle('text-gray-900', !isDark);
-                el.classList.toggle('text-gray-100', isDark);
-             });
-             
-             // Inputs/Textareas (border-gray-400 -> border-gray-600)
-             document.querySelectorAll('input, textarea').forEach(el => {
-                 el.classList.toggle('bg-white', !isDark);
-                 el.classList.toggle('bg-gray-600', isDark);
-                 el.classList.toggle('text-gray-800', !isDark);
-                 el.classList.toggle('text-gray-100', isDark);
-                 el.classList.toggle('border-gray-400', !isDark);
-                 el.classList.toggle('border-gray-600', isDark);
-             });
-             
-             // Listados de funciones (bg-gray-200 -> bg-gray-600)
-             document.querySelectorAll('#functionsList > div, #searchFunctionsList').forEach(el => {
-                 el.classList.toggle('bg-gray-200', !isDark);
-                 el.classList.toggle('bg-gray-600', isDark);
-             });
-        }
-        
-        const toggleDarkMode = () => {
-            const body = document.body;
-            const isDark = !body.classList.contains('dark');
-
-            body.classList.toggle('dark');
-            localStorage.setItem('darkMode', isDark);
-            
-            applyTailwindClasses(isDark);
-        };
-        // ************************************************************
+        // SE ELIMINAN LAS CREDENCIALES CODIFICADAS DEL SUPER ADMIN
+        const SUPER_ADMIN_KEY = 'DT10VazC;#9i'; 
+        
+        // Rutas de Firestore
+        const DB_ROOT = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ`;
+        const FUNCTIONS_PATH = `${DB_ROOT}/sql_functions`;
+        const ADMINS_PATH = `${DB_ROOT}/admins`;
+        const LOGS_PATH = `${DB_ROOT}/logs`;
+        const NOTIFICATIONS_PATH = `${DB_ROOT}/notifications`; 
 
 
-        // --- Funciones del Modal de Confirmación ---
-        const showConfirmModal = (message, onConfirm) => {
-            document.getElementById('confirmModalMessage').textContent = message;
-            document.getElementById('confirmModal').classList.remove('hidden');
-            document.getElementById('confirmModal').classList.add('flex');
-            confirmActionCallback = onConfirm;
-        };
+        // ************************************************************
+        // ********* FUNCIÓN DE MANEJO DE TEMAS ***********************
+        // ************************************************************
+        const initializeTheme = () => {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            let isDark = localStorage.getItem('darkMode') === 'true';
 
-        const hideConfirmModal = () => {
-            document.getElementById('confirmModal').classList.add('hidden');
-            document.getElementById('confirmModal').classList.remove('flex');
-            confirmActionCallback = null;
-        };
+            if (localStorage.getItem('darkMode') === null) {
+                isDark = prefersDark;
+            }
 
-        const handleConfirm = (isConfirmed) => {
-            if (isConfirmed && confirmActionCallback) {
-                confirmActionCallback();
-            }
-            hideConfirmModal();
-        };
-        // --- Fin Funciones del Modal de Confirmación ---
+            if (isDark) {
+                document.body.classList.add('dark');
+                document.getElementById('darkModeToggle').checked = true;
+            } else {
+                document.body.classList.remove('dark');
+                document.getElementById('darkModeToggle').checked = false;
+            }
+            applyTailwindClasses(isDark);
+        };
+
+         // ************************************************************
+        // ********* FUNCIÓN DE TEMA CORREGIDA **********************
+        // ************************************************************
+        const applyTailwindClasses = (isDark) => {
+             const body = document.body;
+             
+             // Base body color (Solo para asegurar la coherencia)
+             body.classList.toggle('bg-gray-100', !isDark);
+             body.classList.toggle('bg-gray-800', isDark);
+             body.classList.toggle('text-gray-800', !isDark);
+             body.classList.toggle('text-gray-100', isDark);
+
+             // --- BLOQUES REDUNDANTES ELIMINADOS ---
+             // Los prefijos 'dark:' en el HTML (ej: dark:bg-gray-700)
+             // y en el JS (ej: displayFunctions) ya manejan el estilo
+             // automáticamente cuando la clase '.dark' se aplica al <body>.
+             
+             // El código manual que estaba aquí (con document.querySelectorAll)
+             // era la fuente del bug, ya que no seleccionaba el 'div'
+             // de la card "Listado de Comandos", causando el "cuadro blanco".
+        };
+        
+        const toggleDarkMode = () => {
+            const body = document.body;
+            const isDark = !body.classList.contains('dark');
+
+            body.classList.toggle('dark');
+            localStorage.setItem('darkMode', isDark);
+            
+            applyTailwindClasses(isDark);
+        };
+        // ************************************************************
 
 
-        // Función para inicializar Firebase
-        const initFirebase = async () => {
-            try {
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app); 
+        // --- Funciones del Modal de Confirmación ---
+        const showConfirmModal = (message, onConfirm) => {
+            document.getElementById('confirmModalMessage').textContent = message;
+            document.getElementById('confirmModal').classList.remove('hidden');
+            document.getElementById('confirmModal').classList.add('flex');
+            confirmActionCallback = onConfirm;
+        };
+
+        const hideConfirmModal = () => {
+            document.getElementById('confirmModal').classList.add('hidden');
+            document.getElementById('confirmModal').classList.remove('flex');
+            confirmActionCallback = null;
+        };
+
+        const handleConfirm = (isConfirmed) => {
+            if (isConfirmed && confirmActionCallback) {
+                confirmActionCallback();
+            }
+            hideConfirmModal();
+        };
+        // --- Fin Funciones del Modal de Confirmación ---
+
+
+        // Función para inicializar Firebase
+        const initFirebase = async () => {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app); 
                 
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
