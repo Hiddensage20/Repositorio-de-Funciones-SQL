@@ -28,9 +28,8 @@
         let editingId = null;
         let confirmActionCallback = null;
 
-        // Credenciales de Super Admin (Se mantienen para el acceso de emergencia/promoción)
-        const SUPER_ADMIN_USERNAME = 'GravisLudio';
-        const SUPER_ADMIN_KEY = 'DT10VazC;#9i';
+        // SE ELIMINAN LAS CREDENCIALES CODIFICADAS DEL SUPER ADMIN
+        const SUPER_ADMIN_KEY = 'DT10VazC;#9i'; // Clave Mantenida SOLO para PROMOCIÓN, no para LOGIN
         
         // Rutas de Firestore
         const DB_ROOT = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ`;
@@ -385,12 +384,9 @@
             adminMessage.textContent = '';
             adminMessage.className = 'mt-4 text-center text-sm';
             
-            if (secretKey !== SUPER_ADMIN_KEY) {
-                adminMessage.textContent = 'Clave secreta incorrecta para la promoción.';
-                adminMessage.classList.add('text-rose-500');
-                return;
-            }
-
+            // La clave secreta ahora solo es obligatoria si el usuario existe para evitar la creación de Auth
+            const isPromotingExistingUser = secretKey === SUPER_ADMIN_KEY;
+            
             if (!newAdminEmail || !newAdminPassword || !newAdminUsername) {
                 adminMessage.textContent = 'Todos los campos son obligatorios.';
                 adminMessage.classList.add('text-rose-500');
@@ -405,23 +401,27 @@
                 uid = userCredential.user.uid;
             } catch (e) {
                 if (e.code === 'auth/email-already-in-use') {
-                    // Si el email ya está en uso, intentamos iniciar sesión para obtener el UID existente.
-                    try {
-                        // Temporalmente loguea al usuario para obtener el UID
-                        const userCredential = await signInWithEmailAndPassword(auth, newAdminEmail, newAdminPassword);
-                        uid = userCredential.user.uid;
-                        // Cierra la sesión temporal para no interrumpir al Super Admin que está creando la cuenta.
-                        await signOut(auth); 
-                        adminMessage.textContent = 'Advertencia: El usuario Auth ya existía. Se asignarán permisos de administrador.';
-                        adminMessage.classList.add('text-yellow-500');
-                    } catch (signInError) {
-                         // Si falló el inicio de sesión, es que la contraseña es incorrecta o no existe.
-                         let displayError = 'Error: El email ya está registrado, pero la contraseña no coincide. No se puede obtener el UID para asignar permisos.';
-                         adminMessage.textContent = displayError;
-                         adminMessage.classList.add('text-rose-500');
-                         return;
+                    // Si el email ya está en uso, intentamos obtener el UID SÓLO si se proporciona la clave.
+                    if (isPromotingExistingUser) {
+                        try {
+                            // Temporalmente loguea al usuario para obtener el UID
+                            const userCredential = await signInWithEmailAndPassword(auth, newAdminEmail, newAdminPassword);
+                            uid = userCredential.user.uid;
+                            // Cierra la sesión temporal para no interrumpir al Admin que está creando la cuenta.
+                            await signOut(auth); 
+                            adminMessage.textContent = 'Advertencia: El usuario Auth ya existía. Se asignarán permisos de administrador.';
+                            adminMessage.classList.add('text-yellow-500');
+                        } catch (signInError) {
+                             let displayError = 'Error: El email ya está registrado, pero la contraseña no coincide. No se puede obtener el UID para asignar permisos.';
+                             adminMessage.textContent = displayError;
+                             adminMessage.classList.add('text-rose-500');
+                             return;
+                        }
+                    } else {
+                        adminMessage.textContent = 'Error: El email ya está registrado. Para promocionar a un usuario existente, ingrese la clave secreta.';
+                        adminMessage.classList.add('text-rose-500');
+                        return;
                     }
-
                 } else if (e.code === 'auth/weak-password') {
                     adminMessage.textContent = 'Error: La contraseña debe tener al menos 6 caracteres.';
                     adminMessage.classList.add('text-rose-500');
@@ -459,6 +459,122 @@
             }
         };
 
+        const logout = async () => {
+            try {
+                // Siempre cierra la sesión de Firebase Auth, si existe.
+                if (auth.currentUser) {
+                    await signOut(auth);
+                }
+                
+                // Reseteamos el estado de la aplicación
+                loggedInUser = null; 
+
+                // Ocultar secciones de administración
+                document.getElementById('addFunctionSection').classList.add('hidden');
+                document.getElementById('fixErrorSection').classList.add('hidden');
+                document.getElementById('adminManagementSection').classList.add('hidden');
+                document.getElementById('notificationsSection').classList.add('hidden');
+                document.getElementById('logoutButton').classList.add('hidden');
+                document.getElementById('welcomeMessage').classList.add('hidden');
+
+                // Volver a iniciar sesión anónima para acceder a funciones de lectura pública
+                await signInAnonymously(auth);
+                userId = auth.currentUser.uid;
+                document.getElementById('userIdDisplay').textContent = `Tu ID de usuario: ${userId}`;
+
+                // Mostrar sección de login y refrescar lista para ocultar botones de editar/eliminar
+                document.getElementById('loginSection').classList.remove('hidden');
+                displayFunctions(); 
+
+                showMessage('Sesión cerrada correctamente.', 'info');
+            } catch (error) {
+                console.error("Error al cerrar sesión o al re-autenticar anónimamente:", error);
+                showMessage('Error al cerrar sesión.', 'error');
+            }
+        };
+
+        // Función de Inicio de Sesión (AHORA SOLO USA FIREBASE AUTH)
+        const login = async (event) => {
+            event.preventDefault();
+            const loginEmail = document.getElementById('loginEmail').value.trim();
+            const loginPassword = document.getElementById('loginPassword').value;
+            const loginMessage = document.getElementById('loginMessage');
+            
+            loginMessage.textContent = '';
+            loggedInUser = null;
+            
+            let userFound = false;
+            let userData = null;
+            let uid = null;
+
+            try {
+                // 1. Intento de inicio de sesión de Firebase Auth (Email/Password)
+                const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+                const user = userCredential.user;
+                uid = user.uid;
+
+                // 2. Buscamos el rol en Firestore usando el UID
+                const docRef = doc(db, ADMINS_PATH, uid);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const admin = docSnap.data();
+                    loggedInUser = { 
+                        uid: uid,
+                        username: admin.username, 
+                        isAdmin: admin.isAdmin || false, 
+                        lastLogin: admin.lastLogin 
+                    };
+                    userFound = true;
+                    userData = docSnap;
+                } else {
+                    loginMessage.textContent = 'Usuario no tiene permisos de administrador (Rol no encontrado en Firestore).';
+                    loginMessage.classList.add('text-rose-500');
+                    await signOut(auth); // Desconecta al usuario de Auth si no tiene rol de admin en Firestore
+                    return;
+                }
+
+            } catch (e) {
+                console.error("Error de autenticación:", e);
+                const errorCode = e.code || '';
+                if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password') {
+                    loginMessage.textContent = 'Credenciales incorrectas.';
+                } else {
+                    loginMessage.textContent = 'Error de autenticación. Verifica tus datos.';
+                }
+                loginMessage.classList.add('text-rose-500');
+                return;
+            }
+
+
+            if (userFound) {
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('logoutButton').classList.remove('hidden');
+                document.getElementById('addFunctionSection').classList.remove('hidden');
+                document.getElementById('fixErrorSection').classList.remove('hidden');
+                
+                displayFunctions(); // Refresca botones de editar/eliminar
+
+                if (loggedInUser.isAdmin) {
+                    document.getElementById('adminManagementSection').classList.remove('hidden');
+                    document.getElementById('notificationsSection').classList.remove('hidden');
+                }
+                
+                // Solo para usuarios de Firestore
+                if (userData) {
+                    await sendWelcomeMessage(loggedInUser.lastLogin, loggedInUser.username);
+                    await updateDoc(userData.ref, { lastLogin: new Date() });
+                }
+
+                showMessage(`¡Bienvenido, ${loggedInUser.username}! Has iniciado sesión con éxito.`, 'success');
+                document.getElementById('welcomeMessage').classList.remove('hidden');
+
+            } else {
+                // Esta parte ya se maneja en el bloque else/catch
+            }
+        };
+
+
         const sendWelcomeMessage = async (lastLogin, username) => { /* ... (Logic remains the same) ... */ };
         const generateSQLQuery = async () => { /* ... (Logic remains the same) ... */ };
         const fixSyntaxWithAI = async () => { /* ... (Logic remains the same) ... */ };
@@ -473,6 +589,10 @@
             document.getElementById('descriptionSearchButton').addEventListener('click', generateSQLQuery);
             document.getElementById('fixButton').addEventListener('click', fixSyntaxWithAI);
             document.getElementById('createAdminForm').addEventListener('submit', createAdmin);
+            
+            // Para poder usar la clave de corrección, es necesario un usuario loggeado.
+            // La clave de corrección sigue usando la clave de emergencia para simular un privilegio alto,
+            // pero el usuario debe estar loggeado primero.
             document.getElementById('functionSearchInput').addEventListener('input', searchFunctions);
             document.getElementById('confirmBtn').addEventListener('click', () => handleConfirm(true));
             document.getElementById('cancelBtn').addEventListener('click', () => handleConfirm(false));
@@ -493,7 +613,7 @@
 
         <section id="loginSection" class="bg-white p-8 rounded-xl shadow-lg border border-gray-200 max-w-md mx-auto">
             <h2 class="text-2xl font-bold mb-4 text-gray-900 text-center">Inicio de Sesión (Admin)</h2>
-            <p class="text-sm text-gray-500 text-center mb-4">Usa Email y Contraseña para administradores registrados.</p>
+            <p class="text-sm text-gray-500 text-center mb-4">Ingresa con tu email y contraseña de administrador.</p>
             <form id="loginForm">
                 <div class="mb-4">
                     <label for="loginEmail" class="block text-sm font-medium text-gray-700 mb-1">Email:</label>
@@ -507,7 +627,7 @@
                     Ingresar
                 </button>
             </form>
-            <p class="text-center text-xs text-gray-400 mt-4">Super Admin de emergencia: GravisLudio / DT10VazC;#9i</p>
+            <!-- SE ELIMINA LA REFERENCIA AL SUPER ADMIN DE EMERGENCIA -->
             <p id="loginMessage" class="mt-4 text-center text-sm"></p>
         </section>
 
@@ -558,7 +678,7 @@
                     <textarea id="errorInput" rows="4" class="w-full p-2 border border-gray-400 rounded-md font-mono focus:ring-purple-500 focus:border-purple-500" placeholder="Ej: SELECT nombre FROM usuarios WHERE edad > 25"></textarea>
                 </div>
                 <div class="mb-4">
-                    <label for="correctionKey" class="block text-sm font-medium text-gray-700 mb-1">Clave de Super Admin (DT10VazC;#9i):</label>
+                    <label for="correctionKey" class="block text-sm font-medium text-gray-700 mb-1">Clave de Promoción (DT10VazC;#9i):</label>
                     <input type="password" id="correctionKey" class="w-full p-2 border border-gray-400 rounded-md focus:ring-purple-500 focus:border-purple-500">
                 </div>
                 <button id="fixButton" type="button" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200">
@@ -589,10 +709,10 @@
                 <div id="statusMessage" class="mt-4 text-center"></div>
             </section>
 
-            <!-- Sección de Administración de Usuarios (Solo para Super Admin) -->
+            <!-- Sección de Administración de Usuarios (Solo para Admins) -->
             <section id="adminManagementSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mt-8 mb-8 hidden">
                 <h2 class="text-2xl font-bold mb-4 text-gray-900">Crear Nuevo Usuario Administrador</h2>
-                <p class="text-sm text-gray-600 mb-4">Esto crea una cuenta en Firebase Auth Y le otorga el rol de administrador en Firestore.</p>
+                <p class="text-sm text-gray-600 mb-4">Crea una nueva cuenta de Auth y asigna permisos de administrador en Firestore.</p>
                 <form id="createAdminForm">
                     <div class="mb-4">
                         <label for="newAdminEmail" class="block text-sm font-medium text-gray-700 mb-1">Email del Administrador:</label>
@@ -607,8 +727,8 @@
                         <input type="text" id="newAdminUsername" class="w-full p-2 border border-gray-400 rounded-md" required>
                     </div>
                     <div class="mb-4">
-                        <label for="secretKey" class="block text-sm font-medium text-gray-700 mb-1">Clave Secreta de Promoción (DT10VazC;#9i):</label>
-                        <input type="password" id="secretKey" class="w-full p-2 border border-gray-400 rounded-md" required>
+                        <label for="secretKey" class="block text-sm font-medium text-gray-700 mb-1">Clave de Promoción (Opcional, para usuarios existentes):</label>
+                        <input type="password" id="secretKey" class="w-full p-2 border border-gray-400 rounded-md">
                     </div>
                     <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200">
                         Crear y Promover Administrador
