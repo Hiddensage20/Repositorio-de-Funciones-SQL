@@ -27,6 +27,9 @@
         let functionsList = [];
         let editingId = null;
         let confirmActionCallback = null;
+        // Variable para almacenar la acción pendiente de guardar después de la validación de Gemini
+        let pendingSaveAction = null; 
+
 
         // SE ELIMINAN LAS CREDENCIALES CODIFICADAS DEL SUPER ADMIN
         const SUPER_ADMIN_KEY = 'DT10VazC;#9i'; // Clave Mantenida SOLO para PROMOCIÓN, no para LOGIN
@@ -206,64 +209,110 @@
             });
         };
 
-        const validateFunctionWithAI = async (syntax) => {
+        // --- FUNCIÓN DE VALIDACIÓN DE GEMINI MODIFICADA ---
+        const validateFunctionWithAI = async (name, description, syntax) => {
             const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`; 
-            const prompt = `Eres un experto en SQL. Evalúa si la siguiente sintaxis es una consulta de SQL válida. Si no es válida, describe en no más de 10 palabras cuál es el error. No ofrezcas correcciones ni explicaciones adicionales. Sintaxis: ${syntax}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`; // Modelo cambiado a Flash
+            
+            const prompt = `Eres un experto en SQL y un editor de documentación de alta calidad. Tu tarea es validar una función de SQL que un administrador quiere agregar o editar.
 
+Revisa los siguientes campos:
+1.  Nombre de la Función: ${name}
+2.  Descripción: ${description}
+3.  Sintaxis: ${syntax}
+
+Sigue estos pasos y proporciona la respuesta en formato JSON:
+1.  **VERIFICACIÓN BÁSICA (Validación de Sintaxis):** ¿Es la sintaxis un código SQL válido (o un patrón de función SQL válido)? Si NO, establece "valid": false.
+2.  **REVISIÓN DE COHERENCIA Y CALIDAD:**
+    * Si la sintaxis es válida, revisa si la Descripción es completa y si la Sintaxis es el mejor ejemplo para la función.
+    * Si la Descripción o la Sintaxis son subóptimas, genera una o dos sugerencias de mejora concisas.
+    * Si hay sugerencias, genera una 'optimizedDescription' y 'optimizedSyntax' mejoradas.
+3.  **SALIDA JSON:** Proporciona tu respuesta en el siguiente esquema JSON.
+
+JSON Scheme:
+{
+  "valid": <boolean, true si la sintaxis es correcta; false si hay un error de sintaxis>,
+  "suggestions": <string, Un mensaje conciso de mejora si la sintaxis es válida pero necesita pulirse, o vacío si es perfecto.>,
+  "optimizedDescription": <string, La Descripción mejorada. Debe ser igual a la original si no hay sugerencias.>,
+  "optimizedSyntax": <string, La Sintaxis mejorada. Debe ser igual a la original si no hay sugerencias.>
+}
+`;
+            
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: "Eres un experto en SQL. Responde con 'SÍ' o 'NO' seguido de un mensaje breve sobre el error." }] },
+                config: {
+                    responseMimeType: "application/json", // Forzar la respuesta JSON
+                },
             };
             
-            let attempts = 0;
-            const maxAttempts = 3;
-            const initialDelay = 1000;
-
-            const makeApiCall = async () => {
+            try {
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                if (response.status === 429 && attempts < maxAttempts - 1) {
-                    throw new Error("Rate limit exceeded");
-                }
-                return response;
-            };
-
-            try {
-                let response;
-                while (attempts < maxAttempts) {
-                    try {
-                        response = await makeApiCall();
-                        break;
-                    } catch (error) {
-                        if (error.message === "Rate limit exceeded") {
-                            const delay = initialDelay * Math.pow(2, attempts);
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            attempts++;
-                        } else {
-                            throw error;
-                        }
-                    }
-                }
                 
                 const result = await response.json();
                 const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
                 
-                if (text.trim().toUpperCase().startsWith('SÍ')) {
-                    return { valid: true, message: '¡Validación exitosa!' };
-                } else {
-                    const errorMessage = text.trim().replace(/^NO\.?\s*/i, '', '').trim();
-                    return { valid: false, message: errorMessage || 'Error de sintaxis no especificado.' };
-                }
+                // Intentar parsear el JSON
+                const jsonText = text.replace(/```json|```/g, '').trim();
+                const validationData = JSON.parse(jsonText);
+
+                return validationData;
             } catch (error) {
                 console.error("Error al validar con IA:", error);
-                return { valid: false, message: "No se pudo validar con la IA. Error de conexión o API." };
+                return { valid: false, suggestions: "No se pudo validar con la IA. Error de conexión o API.", optimizedDescription: description, optimizedSyntax: syntax };
             }
         };
 
+        // --- FUNCIÓN PARA MOSTRAR SUGERENCIAS EN MODAL (NUEVA) ---
+        const showGeminiSuggestions = (validationData) => {
+            const modal = document.getElementById('geminiModal');
+            const messageEl = document.getElementById('geminiModalMessage');
+            const suggestionsEl = document.getElementById('geminiSuggestionsBody');
+            const acceptBtn = document.getElementById('geminiAcceptBtn');
+            const rejectBtn = document.getElementById('geminiRejectBtn');
+            
+            messageEl.textContent = 'Gemini ha detectado mejoras en la función. ¿Deseas aplicarlas antes de guardar?';
+            suggestionsEl.innerHTML = `
+                <p class="text-indigo-700 font-semibold mb-2">Sugerencias de Gemini:</p>
+                <p class="mb-4 text-gray-700">${validationData.suggestions}</p>
+                
+                <div class="bg-gray-100 p-3 rounded-lg border border-gray-300">
+                    <p class="font-bold text-sm text-gray-800">Descripción Optimizada:</p>
+                    <p class="text-sm text-gray-600">${validationData.optimizedDescription}</p>
+                </div>
+                <div class="bg-gray-100 p-3 rounded-lg border border-gray-300 mt-2">
+                    <p class="font-bold text-sm text-gray-800">Sintaxis Optimizada:</p>
+                    <pre class="text-sm text-gray-600 whitespace-pre-wrap">${validationData.optimizedSyntax}</pre>
+                </div>
+            `;
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            // Manejadores de botones para aplicar o rechazar sugerencias
+            acceptBtn.onclick = () => {
+                document.getElementById('funcDescription').value = validationData.optimizedDescription;
+                document.getElementById('funcSyntax').value = validationData.optimizedSyntax;
+                hideGeminiModal();
+                pendingSaveAction(); // Guarda el formulario con los datos optimizados
+            };
+            
+            rejectBtn.onclick = () => {
+                hideGeminiModal();
+                pendingSaveAction(); // Guarda el formulario con los datos originales
+            };
+        };
+
+        const hideGeminiModal = () => {
+            document.getElementById('geminiModal').classList.add('hidden');
+            document.getElementById('geminiModal').classList.remove('flex');
+        };
+        // --- FIN FUNCIÓN PARA MOSTRAR SUGERENCIAS EN MODAL ---
+
+        // --- FUNCIÓN DE AGREGAR/ACTUALIZAR MODIFICADA ---
         const addOrUpdateFunction = async (event) => {
             event.preventDefault();
             const name = document.getElementById('funcName').value.trim();
@@ -282,59 +331,80 @@
                 return;
             }
 
-            button.textContent = 'Validando...';
+            // Esta es la función principal de guardado que se llamará después de la validación/sugerencia
+            const saveFunction = async () => {
+                // Recaptura los valores (pueden haber sido actualizados por el modal)
+                const currentName = document.getElementById('funcName').value.trim();
+                const currentDescription = document.getElementById('funcDescription').value.trim();
+                const currentSyntax = document.getElementById('funcSyntax').value.trim();
+
+                try {
+                    if (editingId) {
+                        await updateDoc(doc(db, FUNCTIONS_PATH, editingId), {
+                            name: currentName,
+                            description: currentDescription,
+                            syntax: currentSyntax,
+                        });
+                        await addDoc(collection(db, LOGS_PATH), {
+                            action: "edited",
+                            user: loggedInUser.username,
+                            functionName: currentName,
+                            timestamp: new Date()
+                        });
+                        showMessage(`Función actualizada con éxito.`, 'success');
+                        editingId = null;
+                        document.getElementById('addFunctionButton').textContent = 'Guardar Función';
+                    } else {
+                        await addDoc(collection(db, FUNCTIONS_PATH), {
+                            name: currentName,
+                            description: currentDescription,
+                            syntax: currentSyntax,
+                            createdAt: new Date()
+                        });
+                        await addDoc(collection(db, LOGS_PATH), {
+                            action: "added",
+                            user: loggedInUser.username,
+                            functionName: currentName,
+                            timestamp: new Date()
+                        });
+                        showMessage(`Función agregada con éxito.`, 'success');
+                        await addNotification({name: currentName, description: currentDescription, syntax: currentSyntax});
+                    }
+                    document.getElementById('addFunctionForm').reset();
+                } catch (e) {
+                    console.error("Error al agregar/actualizar documento: ", e);
+                    showMessage("Error al guardar la función. Verifica la consola de Firebase.", 'error');
+                } finally {
+                    button.textContent = originalButtonText;
+                    button.disabled = false;
+                }
+            };
+
+
+            // --- FLUJO DE VALIDACIÓN INICIAL ---
+            button.textContent = 'Validando con IA...';
             button.disabled = true;
 
-            const validationResult = await validateFunctionWithAI(syntax);
+            const validationResult = await validateFunctionWithAI(name, description, syntax);
 
             if (!validationResult.valid) {
-                showMessage(`Error al agregar la información. Hay un error en la sintaxis: ${validationResult.message}`, 'error');
+                // Si hay un error de sintaxis FATAL, se cancela el proceso
+                showMessage(`Error al agregar la información. Error de sintaxis: ${validationResult.suggestions || 'Sintaxis inválida.'}`, 'error');
                 button.textContent = originalButtonText;
                 button.disabled = false;
                 return;
             }
 
-            try {
-                if (editingId) {
-                    await updateDoc(doc(db, FUNCTIONS_PATH, editingId), {
-                        name,
-                        description,
-                        syntax,
-                    });
-                    await addDoc(collection(db, LOGS_PATH), {
-                        action: "edited",
-                        user: loggedInUser.username,
-                        functionName: name,
-                        timestamp: new Date()
-                    });
-                    showMessage(`Función actualizada con éxito.`, 'success');
-                    editingId = null;
-                    document.getElementById('addFunctionButton').textContent = 'Guardar Función';
-                } else {
-                    await addDoc(collection(db, FUNCTIONS_PATH), {
-                        name,
-                        description,
-                        syntax,
-                        createdAt: new Date()
-                    });
-                    await addDoc(collection(db, LOGS_PATH), {
-                        action: "added",
-                        user: loggedInUser.username,
-                        functionName: name,
-                        timestamp: new Date()
-                    });
-                    showMessage(`Función agregada con éxito.`, 'success');
-                    await addNotification({name, description, syntax});
-                }
-                document.getElementById('addFunctionForm').reset();
-            } catch (e) {
-                console.error("Error al agregar/actualizar documento: ", e);
-                showMessage("Error al guardar la función. Verifica la consola de Firebase.", 'error');
-            } finally {
-                button.textContent = originalButtonText;
-                button.disabled = false;
+            if (validationResult.suggestions && validationResult.suggestions.trim() !== '') {
+                // Si hay sugerencias de mejora, mostrar modal
+                pendingSaveAction = saveFunction; // Almacenar la acción de guardado
+                showGeminiSuggestions(validationResult);
+            } else {
+                // Si es válido y no hay sugerencias, guardar directamente
+                saveFunction();
             }
         };
+        // --- FIN FUNCIÓN DE AGREGAR/ACTUALIZAR MODIFICADA ---
 
         const editFunction = (func) => {
             editingId = func.id;
@@ -651,7 +721,15 @@
             initFirebase();
             document.getElementById('loginForm').addEventListener('submit', login);
             document.getElementById('logoutButton').addEventListener('click', logout);
-            document.getElementById('addFunctionForm').addEventListener('submit', addOrUpdateFunction);
+            // ELIMINAR O MODIFICAR la línea aquí si el evento ya está adjunto.
+            const form = document.getElementById('addFunctionForm');
+            if (form.hasAttribute('data-listeners-attached')) {
+                // Prevenir doble adjunción si se recarga la función.
+            } else {
+                form.addEventListener('submit', addOrUpdateFunction);
+                form.setAttribute('data-listeners-attached', 'true');
+            }
+
             document.getElementById('descriptionSearchButton').addEventListener('click', generateSQLQuery);
             document.getElementById('fixButton').addEventListener('click', fixSyntaxWithAI);
             document.getElementById('createAdminForm').addEventListener('submit', createAdmin);
@@ -660,6 +738,10 @@
             document.getElementById('functionSearchInput').addEventListener('input', searchFunctions);
             document.getElementById('confirmBtn').addEventListener('click', () => handleConfirm(true));
             document.getElementById('cancelBtn').addEventListener('click', () => handleConfirm(false));
+
+            // Adjuntar el nuevo modal de Gemini
+            document.getElementById('geminiAcceptBtn').addEventListener('click', () => { /* Logic is handled in showGeminiSuggestions */ });
+            document.getElementById('geminiRejectBtn').addEventListener('click', () => { /* Logic is handled in showGeminiSuggestions */ });
         });
     </script>
 </head>
@@ -811,6 +893,23 @@
                 </button>
                 <button id="confirmBtn" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
                     Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+    
+        <div id="geminiModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center z-50 transition-opacity duration-300">
+        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-lg w-full transform transition-all duration-300 scale-100">
+            <h3 class="text-xl font-bold text-indigo-800 mb-2">¡Sugerencias de Mejora con IA!</h3>
+            <p id="geminiModalMessage" class="text-gray-700 mb-4"></p>
+            <div id="geminiSuggestionsBody" class="mb-6 max-h-80 overflow-y-auto">
+                </div>
+            <div class="flex justify-end space-x-3">
+                <button id="geminiRejectBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-200">
+                    Guardar Sin Cambios
+                </button>
+                <button id="geminiAcceptBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                    Aceptar Sugerencias y Guardar
                 </button>
             </div>
         </div>
