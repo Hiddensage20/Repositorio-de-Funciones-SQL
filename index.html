@@ -211,7 +211,7 @@
 
     // --- FUNCIÓN DE VALIDACIÓN DE GEMINI MODIFICADA (CLAVE ACTUALIZADA) ---
     const validateFunctionWithAI = async (name, description, syntax) => {
-        const apiKey = "AIzaSyB0h595ERkhyMS-GCoa5J6zsq_W440R6SM"; // <-- NUEVA CLAVE AQUÍ
+        const apiKey = "AIzaSyBOiQGLyE5Sz3dDHoX-F19KzHzfQs4vZGY"; // <-- NUEVA CLAVE AQUÍ
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`; // Modelo cambiado a Flash
         
         const prompt = `Eres un experto en SQL y un editor de documentación de alta calidad. Tu tarea es validar una función de SQL que un administrador quiere agregar o editar.
@@ -688,7 +688,7 @@ JSON Scheme:
 
             welcomeMessageDiv.textContent = 'Generando mensaje de bienvenida...';
 
-            const apiKey = "AIzaSyB0h595ERkhyMS-GCoa5J6zsq_W440R6SM"; // <-- NUEVA CLAVE AQUÍ
+            const apiKey = "AIzaSyBOiQGLyE5Sz3dDHoX-F19KzHzfQs4vZGY"; // <-- NUEVA CLAVE AQUÍ
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             const prompt = `Genera un mensaje de bienvenida para un administrador de una base de datos de funciones de SQL. El nombre del usuario es "${username}". Su última sesión fue hace "${timeAgo}". El mensaje debe ser breve, motivador y debe recordarle revisar el panel de notificaciones para estar al día con los cambios de los demás administradores. Incluye el siguiente resumen de su actividad: "${actionsSummary}". Termina el mensaje con la frase "¡Buen código!".`;
 
@@ -714,12 +714,12 @@ JSON Scheme:
         
         const generateSQLQuery = async () => { 
             // CLAVE NO REEMPLAZADA EN ESTA FUNCIÓN (Debes reemplazarla si la usas)
-            const apiKey = "AIzaSyB0h595ERkhyMS-GCoa5J6zsq_W440R6SM"; 
+            const apiKey = "AIzaSyBOiQGLyE5Sz3dDHoX-F19KzHzfQs4vZGY"; 
             /* ... (resto de la lógica) ... */ 
         };
         const fixSyntaxWithAI = async () => { 
             // CLAVE NO REEMPLAZADA EN ESTA FUNCIÓN (Debes reemplazarla si la usas)
-            const apiKey = "AIzaSyB0h595ERkhyMS-GCoa5J6zsq_W440R6SM"; 
+            const apiKey = "AIzaSyBOiQGLyE5Sz3dDHoX-F19KzHzfQs4vZGY"; 
             /* ... (resto de la lógica) ... */ 
         };
         const searchFunctions = (event) => { /* ... (Logic remains the same) ... */ };
