@@ -5,11 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Código Grabado</title>
     <script>
+    // Este script se ejecuta inmediatamente (antes de que la página se pinte)
+    // para evitar el "flickering" y asegurar que Tailwind CDN vea la clase.
+    (function() {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        let isDark = localStorage.getItem('darkMode') === 'true';
+
+        if (localStorage.getItem('darkMode') === null) {
+            isDark = prefersDark;
+        }
+
+        if (isDark) {
+            // Usamos document.documentElement (la etiqueta <html>)
+            // porque se garantiza que existe en este punto.
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    })();
+</script>
+
+<script>
   tailwind.config = {
     darkMode: 'class',
   }
 </script>
 <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+  tailwind.config = {
+    darkMode: 'class',
+  }
+</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Estilo para el menú desplegable */
@@ -92,26 +118,43 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         const NOTIFICATIONS_PATH = `${DB_ROOT}/notifications`; 
 
 
-        // ************************************************************
-        // ********* FUNCIÓN DE MANEJO DE TEMAS ***********************
+// ************************************************************
+        // ********* FUNCIÓN DE MANEJO DE TEMAS (ACTUALIZADA) *********
         // ************************************************************
         const initializeTheme = () => {
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            let isDark = localStorage.getItem('darkMode') === 'true';
-
-            if (localStorage.getItem('darkMode') === null) {
-                isDark = prefersDark;
-            }
+            // La clase '.dark' en <html> ya fue puesta por el script en el <head>.
+            // Esta función ahora solo sincroniza el toggle y el fondo del <body>.
+            const isDark = document.documentElement.classList.contains('dark');
 
             if (isDark) {
-                document.body.classList.add('dark');
                 document.getElementById('darkModeToggle').checked = true;
             } else {
-                document.body.classList.remove('dark');
                 document.getElementById('darkModeToggle').checked = false;
             }
+            // Esta función sigue siendo necesaria para el fondo del <body>
             applyTailwindClasses(isDark);
         };
+
+        // Esta función no cambia, pero asegúrate que la tengas
+        const applyTailwindClasses = (isDark) => {
+             const body = document.body;
+             body.classList.toggle('bg-gray-100', !isDark);
+             body.classList.toggle('bg-gray-800', isDark);
+             body.classList.toggle('text-gray-800', !isDark);
+             body.classList.toggle('text-gray-100', isDark);
+        };
+        
+        const toggleDarkMode = () => {
+            // Usamos document.documentElement (la etiqueta <html>)
+            const isDark = !document.documentElement.classList.contains('dark');
+           
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('darkMode', isDark);
+            
+            // Sincroniza el fondo del <body>
+            applyTailwindClasses(isDark);
+        };
+        // ************************************************************
 
          // ************************************************************
         // ********* FUNCIÓN DE TEMA CORREGIDA **********************
