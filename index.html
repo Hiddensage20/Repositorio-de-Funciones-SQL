@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Código Grabado</title>
+    <title>Código Grabado - SQL Tool con IA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Estilo para el menú desplegable */
@@ -51,14 +50,34 @@
         input:checked + .slider:before {
             transform: translateX(22px);
         }
+
+        /* Estilos de Dark Mode aplicados al body para que Tailwind funcione correctamente */
+        body.dark {
+            background-color: #1f2937; /* Gray-800 */
+            color: #f3f4f6; /* Gray-100 */
+        }
+        
+        /* Asegura que el color de la tarjeta de comandos se respete */
+        #functionsList > div {
+            transition: background-color 300ms, color 300ms;
+        }
+        .dark #functionsList > div {
+            background-color: #4b5563; /* Gray-600 */
+        }
+        .dark #functionsList code {
+             background-color: #374151; /* Gray-700 */
+        }
     </style>
     <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, getDocs, setDoc, getDoc, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Configuración de Firebase (Se mantiene la configuración original del usuario)
-        const firebaseConfig = {
+        // ************************************************************
+        // ********* CONFIGURACIÓN ORIGINAL DEL USUARIO ***************
+        // ************************************************************
+        // Configuración de Firebase - RESTAURADA
+        const FIREBASE_CONFIG = {
             apiKey: "AIzaSyCeD4TAPK2GuW01J5WQl7vJjmJWC671f-Y",
             authDomain: "codigograbado.firebaseapp.com",
             projectId: "codigograbado",
@@ -67,25 +86,26 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             appId: "1:346430888474:web:cbaa641fbf4fc62bca4fa3",
             measurementId: "G-626THBS8CJ"
         };
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // Token de autenticación - RESTAURADO (Dependerá del entorno del usuario)
+        const AUTH_TOKEN = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
+
+        // API Key para Gemini - RESTAURADA
+        const API_KEY = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q"; 
+
+        // Clave de Promoción usada para el Fixer (simulación de super-admin)
+        const SUPER_ADMIN_KEY = 'DT10VazC;#9i'; 
 
         let db, auth, userId, loggedInUser = null;
         let functionsList = [];
         let editingId = null;
         let confirmActionCallback = null;
-        
-        let isSyntaxValid = false; 
+        let isSyntaxValid = false;
 
-        // SE ELIMINAN LAS CREDENCIALES CODIFICADAS DEL SUPER ADMIN
-        const SUPER_ADMIN_KEY = 'DT10VazC;#9i'; 
-        
-        // Rutas de Firestore
-        const DB_ROOT = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ`;
+        // Rutas de Firestore - RESTAURADAS
+        const DB_ROOT = `/artifacts/public/data/aTvZxvxzBtCnCNlURVrQ`; 
         const FUNCTIONS_PATH = `${DB_ROOT}/sql_functions`;
         const ADMINS_PATH = `${DB_ROOT}/admins`;
         const LOGS_PATH = `${DB_ROOT}/logs`;
-        const NOTIFICATIONS_PATH = `${DB_ROOT}/notifications`; 
-
 
         // ************************************************************
         // ********* FUNCIÓN DE MANEJO DE TEMAS ***********************
@@ -105,29 +125,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 document.body.classList.remove('dark');
                 document.getElementById('darkModeToggle').checked = false;
             }
-            applyTailwindClasses(isDark);
+            applyTailwindClasses(isDark); 
         };
 
-         // ************************************************************
-        // ********* FUNCIÓN DE TEMA CORREGIDA **********************
-        // ************************************************************
         const applyTailwindClasses = (isDark) => {
-             const body = document.body;
-             
-             // Base body color (Solo para asegurar la coherencia)
-             body.classList.toggle('bg-gray-100', !isDark);
-             body.classList.toggle('bg-gray-800', isDark);
-             body.classList.toggle('text-gray-800', !isDark);
-             body.classList.toggle('text-gray-100', isDark);
-
-             // --- BLOQUES REDUNDANTES ELIMINADOS ---
-             // Los prefijos 'dark:' en el HTML (ej: dark:bg-gray-700)
-             // y en el JS (ej: displayFunctions) ya manejan el estilo
-             // automáticamente cuando la clase '.dark' se aplica al <body>.
-             
-             // El código manual que estaba aquí (con document.querySelectorAll)
-             // era la fuente del bug, ya que no seleccionaba el 'div'
-             // de la card "Listado de Comandos", causando el "cuadro blanco".
+            const body = document.body;
+            body.classList.toggle('bg-gray-100', !isDark);
+            body.classList.toggle('bg-gray-800', isDark);
+            body.classList.toggle('text-gray-800', !isDark);
+            body.classList.toggle('text-gray-100', isDark);
         };
         
         const toggleDarkMode = () => {
@@ -138,9 +144,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             localStorage.setItem('darkMode', isDark);
             
             applyTailwindClasses(isDark);
+            displayFunctions(); 
         };
         // ************************************************************
-
 
         // --- Funciones del Modal de Confirmación ---
         const showConfirmModal = (message, onConfirm) => {
@@ -165,15 +171,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         // --- Fin Funciones del Modal de Confirmación ---
 
 
-        // Función para inicializar Firebase
+        // Función para inicializar Firebase - USANDO CONFIG. ORIGINAL
         const initFirebase = async () => {
             try {
-                const app = initializeApp(firebaseConfig);
+                const app = initializeApp(FIREBASE_CONFIG);
                 db = getFirestore(app);
                 auth = getAuth(app); 
                 
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
+                if (AUTH_TOKEN) {
+                    await signInWithCustomToken(auth, AUTH_TOKEN);
                 } else {
                     await signInAnonymously(auth); 
                 }
@@ -192,7 +198,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         const showMessage = (message, type = 'info') => {
             const statusMessage = document.getElementById('statusMessage');
             let targetElement = statusMessage; 
-            if (!targetElement) {
+            if (!targetElement || (targetElement.offsetHeight === 0 && targetElement.offsetWidth === 0)) {
                 targetElement = document.getElementById('recommendationResults');
             }
 
@@ -203,14 +209,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             tempStatusMessage.className = 'mt-4 text-center p-3 rounded-lg font-medium';
             if (type === 'error') {
-                tempStatusMessage.classList.add('bg-rose-200', 'text-rose-800');
+                tempStatusMessage.classList.add('bg-rose-200', 'text-rose-800', 'dark:bg-rose-900', 'dark:text-rose-200');
             } else if (type === 'success') {
-                tempStatusMessage.classList.add('bg-emerald-200', 'text-emerald-800');
+                tempStatusMessage.classList.add('bg-emerald-200', 'text-emerald-800', 'dark:bg-emerald-900', 'dark:text-emerald-200');
             } else {
-                tempStatusMessage.classList.add('bg-indigo-200', 'text-indigo-800');
+                tempStatusMessage.classList.add('bg-indigo-200', 'text-indigo-800', 'dark:bg-indigo-900', 'dark:text-indigo-200');
             }
 
-            if (targetElement !== statusMessage) {
+            if (targetElement.id === 'recommendationResults') {
                 setTimeout(() => {
                     targetElement.innerHTML = '';
                 }, 5000);
@@ -232,21 +238,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             });
         };
 
-        const fetchNotifications = () => {
-            console.log("Carga de notificaciones deshabilitada en la interfaz.");
-            return;
-        };
-
-        const addNotification = async (func) => { /* No hace nada, el log ya se crea en addOrUpdateFunction */ };
-        const deleteNotification = async (functionName) => { /* No hace nada, el log ya se crea en deleteFunction */ };
-
-        const displayNotifications = (notifications) => {
-            const notificationsList = document.getElementById('notificationsList');
-            if (notificationsList) {
-                notificationsList.innerHTML = '<p class="text-center text-gray-500 text-sm py-2">Esta funcionalidad está deshabilitada en la interfaz. La actividad se registra en Firestore Logs.</p>';
-            }
-        };
-
         const displayFunctions = (functionsToDisplay = functionsList) => {
             const listElement = document.getElementById('functionsList');
             const searchList = document.getElementById('searchFunctionsList');
@@ -256,18 +247,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             const isUserLoggedIn = loggedInUser !== null;
 
             if (functionsToDisplay.length === 0) {
-                listElement.innerHTML = '<p class="text-center text-gray-500">No se encontraron comandos.</p>';
+                listElement.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400">No se encontraron comandos.</p>';
             }
 
             functionsToDisplay.forEach(func => {
                 const funcItem = document.createElement('div');
-                // Ajuste de clases de tema para las cards
-                funcItem.className = 'p-4 rounded-lg shadow-md mb-4 bg-gray-200 dark:bg-gray-600';
+                funcItem.className = 'p-4 rounded-xl shadow-md mb-4 bg-gray-200 dark:bg-gray-700 transition-colors duration-300';
                 
                 funcItem.innerHTML = `
-                    <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100">${func.name}</h3>
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">${func.name}</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-300 mb-2"><strong>Descripción:</strong> ${func.description}</p>
-                    <div class="p-3 rounded-lg border border-gray-400 dark:border-gray-500 overflow-x-auto bg-white dark:bg-gray-700">
+                    <div class="p-3 rounded-lg border border-gray-400 dark:border-gray-500 overflow-x-auto bg-white dark:bg-gray-800">
                         <pre class="whitespace-pre-wrap font-mono text-gray-800 dark:text-gray-200"><code>${func.syntax}</code></pre>
                     </div>
                     <div class="mt-4 flex space-x-2 ${isUserLoggedIn ? '' : 'hidden'}">
@@ -283,7 +273,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
 
                 const searchItem = document.createElement('li');
-                searchItem.className = 'hover:bg-gray-300 dark:hover:bg-gray-500 cursor-pointer p-2 rounded-md transition duration-150';
+                searchItem.className = 'hover:bg-gray-300 dark:hover:bg-gray-600 cursor-pointer p-2 rounded-md transition duration-150 text-gray-800 dark:text-gray-200';
                 searchItem.textContent = func.name;
                 searchItem.onclick = () => {
                     document.getElementById('descriptionSearch').value = func.description;
@@ -294,6 +284,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             });
         };
         
+        // VALIDACIÓN CON IA - USANDO API KEY ORIGINAL
         const validateFunctionWithAI = async () => {
             const name = document.getElementById('funcName').value.trim();
             const description = document.getElementById('funcDescription').value.trim();
@@ -302,22 +293,22 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             const validateButton = document.getElementById('validateSyntaxButton');
 
             if (!loggedInUser) {
-                validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Debes iniciar sesión para pre-validar la sintaxis.</p>`;
+                validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg dark:bg-rose-900 dark:text-rose-200">Debes iniciar sesión para pre-validar la sintaxis.</p>`;
                 return;
             }
 
             if (!name || !description || !syntax) {
-                validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Completa los campos Nombre, Descripción y Sintaxis para validar.</p>`;
+                validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg dark:bg-rose-900 dark:text-rose-200">Completa los campos Nombre, Descripción y Sintaxis para validar.</p>`;
                 return;
             }
 
             validateButton.textContent = 'Validando...';
             validateButton.disabled = true;
-            validationMessageDiv.innerHTML = `<p class="mt-2 text-center p-3 rounded-lg font-medium bg-indigo-200 text-indigo-800">Analizando sintaxis con IA...</p>`;
+            validationMessageDiv.innerHTML = `<p class="mt-2 text-center p-3 rounded-lg font-medium bg-indigo-200 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">Analizando sintaxis con IA...</p>`;
             isSyntaxValid = false; 
 
-            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`; 
+            const apiKey = API_KEY; // Usando API Key original
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             
             let prompt = `Eres un experto en SQL. El usuario está intentando guardar un comando SQL.
 
@@ -378,22 +369,22 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
                 if (responseText.startsWith('SI:VALIDA')) {
                     isSyntaxValid = true;
-                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-emerald-800 bg-emerald-200 p-3 rounded-lg">¡Validación exitosa! La sintaxis es un comando SQL válido. Puedes guardar.</p>`;
+                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-emerald-800 bg-emerald-200 p-3 rounded-lg dark:bg-emerald-900 dark:text-emerald-200">¡Validación exitosa! La sintaxis es un comando SQL válido. Puedes guardar.</p>`;
                     return { valid: true };
                 } else if (responseText.startsWith('NO:SUGERENCIA DE COMANDO:')) {
                     const suggestion = responseText.replace('NO:SUGERENCIA DE COMANDO:', '').trim();
                     
                     const userMessage = `Error de Sintaxis: Lo que ingresaste NO es un comando SQL válido. Sugerencia de la IA: **${suggestion}**. Por favor, ajusta la sintaxis y vuelve a validar.`;
                     
-                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">${userMessage}</p>`;
+                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg dark:bg-rose-900 dark:text-rose-200">${userMessage}</p>`;
                     return { valid: false };
                 } else {
-                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error: La sintaxis no es válida. Inténtalo de nuevo.</p>`;
+                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg dark:bg-rose-900 dark:text-rose-200">Error: La sintaxis no es válida o la respuesta de IA no fue clara. Inténtalo de nuevo.</p>`;
                     return { valid: false };
                 }
             } catch (error) {
                 console.error("Error al validar con IA:", error);
-                validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error de conexión: No se pudo validar con la IA.</p>`;
+                validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg dark:bg-rose-900 dark:text-rose-200">Error de conexión: No se pudo validar con la IA. Inténtalo más tarde.</p>`;
                 return { valid: false };
             } finally {
                 validateButton.textContent = 'Pre-validar Sintaxis con IA ✨';
@@ -402,9 +393,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         };
 
 
-        // ************************************************************
-        // ********* FUNCIÓN PARA GENERAR CONSULTA SQL (CORREGIDA) *****
-        // ************************************************************
+        // GENERADOR DE CONSULTAS - USANDO API KEY ORIGINAL
         const generateSQLQuery = async () => {
             const description = document.getElementById('descriptionSearch').value.trim();
             const button = document.getElementById('descriptionSearchButton');
@@ -419,10 +408,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             button.disabled = true;
             resultsDiv.innerHTML = '';
             
-            resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-indigo-200 text-indigo-800">Generando consulta SQL...</p>`;
+            resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-indigo-200 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">Generando consulta SQL...</p>`;
 
 
-            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q"; // Tu API Key
+            const apiKey = API_KEY; 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             
             const prompt = `Eres un experto en SQL. Genera una consulta SQL (solo el código, no expliques nada) basada en la siguiente descripción. No incluyas comentarios o texto adicional. Descripción: "${description}".`;
@@ -449,16 +438,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 const sqlCode = text.replace(/```sql|```/g, '').trim(); 
                 
                 resultsDiv.innerHTML = `
-                    <h3 class="text-xl font-bold mt-4 mb-2 text-gray-900">Consulta Generada:</h3>
-                    <div class="bg-indigo-100 p-4 rounded-lg border border-indigo-400 overflow-x-auto">
-                        <pre class="whitespace-pre-wrap font-mono text-indigo-800"><code>${sqlCode}</code></pre>
+                    <h3 class="text-xl font-bold mt-4 mb-2 text-gray-900 dark:text-gray-100">Consulta Generada:</h3>
+                    <div class="bg-indigo-100 dark:bg-gray-800 p-4 rounded-xl border border-indigo-400 dark:border-indigo-600 overflow-x-auto shadow-inner">
+                        <pre class="whitespace-pre-wrap font-mono text-indigo-800 dark:text-indigo-300"><code>${sqlCode}</code></pre>
                     </div>
                 `;
                 showMessage('Consulta SQL generada con éxito.', 'success');
                 
             } catch (error) {
                 console.error("Error al generar la consulta SQL:", error);
-                resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Error al generar la consulta: ${error.message}. Intenta de nuevo.</p>`;
+                resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800 dark:bg-rose-900 dark:text-rose-200">Error al generar la consulta: ${error.message}. Intenta de nuevo.</p>`;
             } finally {
                 button.textContent = 'Generar Consulta SQL ✨';
                 button.disabled = false;
@@ -485,7 +474,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }
             
             if (!isSyntaxValid && !editingId) {
-                document.getElementById('validationMessage').innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">¡Atención! La sintaxis no ha sido pre-validada o la validación falló. Usa el botón "Pre-validar" antes de guardar.</p>`;
+                document.getElementById('validationMessage').innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg dark:bg-rose-900 dark:text-rose-200">¡Atención! La sintaxis no ha sido pre-validada o la validación falló. Usa el botón "Pre-validar" antes de guardar.</p>`;
                 return;
             }
 
@@ -544,7 +533,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             document.getElementById('funcSyntax').value = func.syntax;
             document.getElementById('addFunctionButton').textContent = 'Actualizar Comando';
             document.getElementById('addFunctionSection').scrollIntoView({ behavior: 'smooth' });
-            document.getElementById('validationMessage').innerHTML = '<p class="mt-2 text-center text-indigo-800 bg-indigo-200 p-3 rounded-lg">Modo Edición: La validación previa se omite al guardar.</p>';
+            document.getElementById('validationMessage').innerHTML = '<p class="mt-2 text-center text-indigo-800 bg-indigo-200 p-3 rounded-lg dark:bg-indigo-900 dark:text-indigo-200">Modo Edición: La validación previa se omite al guardar.</p>';
             isSyntaxValid = true; 
         };
 
@@ -593,49 +582,53 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             
             if (!newAdminEmail || !newAdminPassword || !newAdminUsername) {
                 adminMessage.textContent = 'Todos los campos son obligatorios.';
-                adminMessage.classList.add('text-rose-500');
+                adminMessage.classList.add('text-rose-500', 'dark:text-rose-400');
                 return;
             }
             
             let uid = null;
 
             try {
+                // 1. Intentar crear usuario
                 const userCredential = await createUserWithEmailAndPassword(auth, newAdminEmail, newAdminPassword);
                 uid = userCredential.user.uid;
+                await signOut(auth); // Desconectar para no interferir con la sesión actual
             } catch (e) {
                 if (e.code === 'auth/email-already-in-use') {
                     if (isPromotingExistingUser) {
+                        // Si ya existe y tienen la clave, intentar iniciar sesión para obtener el UID
                         try {
                             const userCredential = await signInWithEmailAndPassword(auth, newAdminEmail, newAdminPassword);
                             uid = userCredential.user.uid;
                             await signOut(auth); 
                             adminMessage.textContent = 'Advertencia: El email ya existía. Se asignarán permisos de administrador.';
-                            adminMessage.classList.add('text-yellow-500');
+                            adminMessage.classList.add('text-yellow-500', 'dark:text-yellow-400');
                         } catch (signInError) {
                              let displayError = 'Error: El email ya está registrado, pero la contraseña no coincide. No se puede obtener el UID para asignar permisos.';
                              adminMessage.textContent = displayError;
-                             adminMessage.classList.add('text-rose-500');
+                             adminMessage.classList.add('text-rose-500', 'dark:text-rose-400');
                              return;
                         }
                     } else {
-                        adminMessage.textContent = 'Error: El email ya está registrado. Para promocionar a un usuario existente, ingrese la clave secreta.';
-                        adminMessage.classList.add('text-rose-500');
+                        adminMessage.textContent = 'Error: El email ya está registrado. Para promocionar a un usuario existente, ingrese la clave de promoción.';
+                        adminMessage.classList.add('text-rose-500', 'dark:text-rose-400');
                         return;
                     }
                 } else if (e.code === 'auth/weak-password') {
                     adminMessage.textContent = 'Error: La contraseña debe tener al menos 6 caracteres.';
-                    adminMessage.classList.add('text-rose-500');
+                    adminMessage.classList.add('text-rose-500', 'dark:text-rose-400');
                     return;
                 } else {
                     console.error("Error al crear usuario Auth:", e);
                     adminMessage.textContent = `Error (${e.code || 'unknown-error'}): No se pudo crear la cuenta de usuario.`;
-                    adminMessage.classList.add('text-rose-500');
+                    adminMessage.classList.add('text-rose-500', 'dark:text-rose-400');
                     return;
                 }
             }
             
             if (!uid) { return; } 
 
+            // 2. Asignar rol de administrador en Firestore
             try {
                 await setDoc(doc(db, ADMINS_PATH, uid), {
                     uid: uid,
@@ -647,13 +640,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
                 if (!adminMessage.classList.contains('text-yellow-500')) {
                     adminMessage.textContent = `Administrador ${newAdminUsername} creado con éxito. Ahora puede iniciar sesión con su email y contraseña.`;
-                    adminMessage.classList.add('text-emerald-500');
+                    adminMessage.classList.add('text-emerald-500', 'dark:text-emerald-400');
                 }
                 document.getElementById('createAdminForm').reset();
             } catch (e) {
                 console.error("Error al registrar administrador en Firestore:", e);
                 adminMessage.textContent = 'Error: Se creó la cuenta de Auth, pero falló el registro de permisos en Firestore.';
-                adminMessage.classList.add('text-rose-500');
+                adminMessage.classList.add('text-rose-500', 'dark:text-rose-400');
             }
         };
 
@@ -668,8 +661,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 // Ocultar secciones de administración
                 document.getElementById('addFunctionSection').classList.add('hidden');
                 document.getElementById('fixErrorSection').classList.add('hidden');
-                document.getElementById('adminManagementSection').classList.add('hidden');
-                document.getElementById('notificationsSection').classList.add('hidden');
                 
                 // Mostrar/Ocultar elementos del menú
                 document.getElementById('adminDropdownLogin').classList.remove('hidden');
@@ -708,23 +699,26 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 const user = userCredential.user;
                 uid = user.uid;
 
-                loggedInUser = { 
-                    uid: uid,
-                    username: loginEmail.split('@')[0], 
-                    isAdmin: true, 
-                    lastLogin: null 
-                };
-                userFound = true;
+                // Verificar si es administrador en Firestore
+                const docRef = doc(db, ADMINS_PATH, uid);
+                const docSnap = await getDoc(docRef);
 
-                try {
-                    const docRef = doc(db, ADMINS_PATH, uid);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        loggedInUser.lastLogin = docSnap.data().lastLogin;
-                        loggedInUser.username = docSnap.data().username || loggedInUser.username;
-                    }
-                } catch (e) {
-                    console.warn("No se pudo obtener el documento de admin para la verificación de logs.", e);
+                if (docSnap.exists() && docSnap.data().isAdmin) {
+                     loggedInUser = { 
+                        uid: uid,
+                        username: docSnap.data().username || loginEmail.split('@')[0], 
+                        isAdmin: true, 
+                        lastLogin: docSnap.data().lastLogin 
+                    };
+                    userFound = true;
+
+                } else {
+                    // Si el usuario existe en Auth pero no tiene permisos de admin en Firestore
+                    await signOut(auth); // Cierra la sesión con email/password
+                    await signInAnonymously(auth); // Vuelve a la sesión anónima
+                    loginMessage.textContent = 'Credenciales correctas, pero no tienes permisos de administrador.';
+                    loginMessage.classList.add('text-rose-500', 'dark:text-rose-400');
+                    return;
                 }
 
             } catch (e) {
@@ -736,13 +730,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 } else {
                     loginMessage.textContent = 'Error de autenticación. Verifica tus datos.';
                 }
-                loginMessage.classList.add('text-rose-500');
+                loginMessage.classList.add('text-rose-500', 'dark:text-rose-400');
                 return;
             }
 
 
             if (userFound) {
-                closeAdminModal(); // Cierra el modal al iniciar sesión
+                closeAdminModal(); 
                 
                 // Mostrar botones de administración en el menú
                 document.getElementById('adminDropdownLogin').classList.add('hidden');
@@ -752,7 +746,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
                 document.getElementById('addFunctionSection').classList.remove('hidden');
                 document.getElementById('fixErrorSection').classList.remove('hidden');
-                document.getElementById('adminManagementSection').classList.remove('hidden');
                 
                 displayFunctions(); // Refresca botones de editar/eliminar
 
@@ -779,14 +772,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             
             if (lastLogin) {
                 const logsRef = collection(db, LOGS_PATH);
-                const q = query(logsRef, where("user", "==", username));
+                const q = query(logsRef); 
                 try {
                     const querySnapshot = await getDocs(q);
 
                     const recentActions = [];
                     querySnapshot.forEach(doc => {
                         const log = doc.data();
-                        if (log.timestamp.toDate() > lastLogin.toDate()) {
+                        if (log.timestamp && log.timestamp.toDate() > lastLogin.toDate()) {
                             recentActions.push(log);
                         }
                     });
@@ -808,7 +801,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             welcomeMessageDiv.textContent = 'Generando mensaje de bienvenida...';
 
-            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
+            const apiKey = API_KEY;
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             const prompt = `Genera un mensaje de bienvenida para un administrador de una base de datos de comandos de SQL. El nombre del usuario es "${username}". Su última sesión fue hace "${timeAgo}". El mensaje debe ser breve, motivador y debe recordarle revisar el panel de logs. Incluye el siguiente resumen de su actividad: "${actionsSummary}". Termina el mensaje con la frase "¡Buen código!".`;
 
@@ -832,6 +825,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }
         };
 
+        // CORRECCIÓN DE SINTAXIS CON IA - USANDO API KEY ORIGINAL
         const fixSyntaxWithAI = async () => {
             const syntax = document.getElementById('errorInput').value.trim();
             const correctionKey = document.getElementById('correctionKey').value.trim();
@@ -839,20 +833,20 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             const button = document.getElementById('fixButton');
 
             if (!syntax) {
-                resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Por favor, ingresa el código SQL a corregir.</p>`;
+                resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg dark:bg-rose-900 dark:text-rose-200">Por favor, ingresa el código SQL a corregir.</p>`;
                 return;
             }
 
             if (correctionKey !== SUPER_ADMIN_KEY) {
-                resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Clave de Promoción incorrecta. Debes ser administrador para usar esta función.</p>`;
+                resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg dark:bg-rose-900 dark:text-rose-200">Clave de Promoción incorrecta. Debes ser administrador para usar esta función.</p>`;
                 return;
             }
 
             button.textContent = 'Corrigiendo...';
             button.disabled = true;
-            resultDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-indigo-200 text-indigo-800">Analizando y corrigiendo sintaxis con IA...</p>`;
+            resultDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-indigo-200 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">Analizando y corrigiendo sintaxis con IA...</p>`;
 
-            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
+            const apiKey = API_KEY;
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             const prompt = `Eres un experto en optimización y corrección de código SQL. Corrige cualquier error de sintaxis en el siguiente código y, si es posible, ofréceme una versión optimizada. Devuelve SÓLO el código SQL final corregido y optimizado. No uses comentarios ni ninguna explicación. Código SQL: ${syntax}`;
 
@@ -874,15 +868,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 const correctedCode = text.replace(/```sql|```/g, '').trim();
 
                 resultDiv.innerHTML = `
-                    <h3 class="text-xl font-bold mt-4 mb-2 text-gray-900">Código Corregido/Optimizado:</h3>
-                    <div class="bg-emerald-100 p-4 rounded-lg border border-emerald-400 overflow-x-auto">
-                        <pre class="whitespace-pre-wrap font-mono text-emerald-800"><code>${correctedCode}</code></pre>
+                    <h3 class="text-xl font-bold mt-4 mb-2 text-gray-900 dark:text-gray-100">Código Corregido/Optimizado:</h3>
+                    <div class="bg-emerald-100 dark:bg-gray-800 p-4 rounded-xl border border-emerald-400 dark:border-emerald-600 overflow-x-auto shadow-inner">
+                        <pre class="whitespace-pre-wrap font-mono text-emerald-800 dark:text-emerald-300"><code>${correctedCode}</code></pre>
                     </div>
                 `;
 
             } catch (error) {
                 console.error("Error al corregir con IA:", error);
-                resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error al conectar con la IA para la corrección.</p>`;
+                resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg dark:bg-rose-900 dark:text-rose-200">Error al conectar con la IA para la corrección.</p>`;
             } finally {
                 button.textContent = 'Corregir Sintaxis ✨';
                 button.disabled = false;
@@ -919,6 +913,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         const closeAdminModal = () => {
             document.getElementById('adminLoginModal').classList.add('hidden');
             document.getElementById('adminLoginModal').classList.remove('flex');
+            document.getElementById('loginMessage').textContent = '';
+            document.getElementById('adminMessage').textContent = '';
+            document.getElementById('loginForm').reset();
+            document.getElementById('createAdminForm').reset();
         };
 
 
@@ -926,9 +924,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             initializeTheme();
             initFirebase();
             
-            // ************************************************************
-            // ********* EVENT LISTENERS CORREGIDOS *************************
-            // ************************************************************
             document.getElementById('showLoginButton').addEventListener('click', showAdminLogin);
             document.getElementById('logoutButton').addEventListener('click', logout);
             document.getElementById('showAdminManagementButton').addEventListener('click', showAdminManagement);
@@ -938,7 +933,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             document.getElementById('loginForm').addEventListener('submit', login);
             document.getElementById('addFunctionForm').addEventListener('submit', addOrUpdateFunction);
             document.getElementById('validateSyntaxButton').addEventListener('click', validateFunctionWithAI);
-            document.getElementById('descriptionSearchButton').addEventListener('click', generateSQLQuery); // <-- Botón Generador
+            document.getElementById('descriptionSearchButton').addEventListener('click', generateSQLQuery);
             document.getElementById('fixButton').addEventListener('click', fixSyntaxWithAI);
             document.getElementById('createAdminForm').addEventListener('submit', createAdmin);
             document.getElementById('functionSearchInput').addEventListener('input', searchFunctions);
@@ -958,9 +953,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 </head>
 <body class="bg-gray-100 font-sans leading-normal tracking-normal text-gray-800 transition-colors duration-300">
 
-    <header class="bg-white shadow-md sticky top-0 z-10 dark:bg-gray-700 transition-colors duration-300">
+    <header class="bg-white shadow-lg sticky top-0 z-10 dark:bg-gray-800 transition-colors duration-300">
         <div class="container mx-auto px-4 md:px-8 py-3 flex justify-between items-center">
-            <h1 class="text-2xl font-extrabold text-gray-900 dark:text-gray-100">Código Grabado</h1>
+            <h1 class="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400">Código Grabado</h1>
             
             <div class="flex items-center space-x-4">
                 
@@ -974,14 +969,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 </div>
                 
                 <div class="dropdown inline-block relative">
-                    <button class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded inline-flex items-center hover:bg-indigo-700 transition duration-200">
+                    <button class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-xl inline-flex items-center hover:bg-indigo-700 transition duration-200 shadow-md">
                         <span class="mr-1">Admin</span>
                         <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                     </button>
-                    <ul class="dropdown-menu absolute hidden text-gray-700 pt-1 right-0 z-20 w-64 shadow-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg overflow-hidden transition-colors duration-300">
+                    <ul class="dropdown-menu absolute hidden text-gray-700 pt-1 right-0 z-20 w-64 shadow-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl overflow-hidden transition-colors duration-300">
                         
                         <li id="adminDropdownLogin">
-                            <a id="showLoginButton" class="bg-indigo-500 hover:bg-indigo-600 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">
+                            <a id="showLoginButton" class="bg-indigo-500 hover:bg-indigo-600 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm font-semibold">
                                 Iniciar Sesión
                             </a>
                         </li>
@@ -993,12 +988,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         </li>
                         
                         <li id="adminDropdownLogout" class="hidden">
-                            <a id="logoutButton" class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">
+                            <a id="logoutButton" class="bg-rose-500 hover:bg-rose-600 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm font-semibold">
                                 Cerrar Sesión
                             </a>
                         </li>
 
-                        <li class="p-2 border-t dark:border-gray-600 text-xs text-gray-500 dark:text-gray-400">
+                        <li class="p-2 border-t border-gray-200 dark:border-gray-600 text-xs text-gray-500 dark:text-gray-400">
                             <p id="userIdDisplay">Tu ID de usuario: ...</p>
                         </li>
                     </ul>
@@ -1010,10 +1005,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
     <div class="container mx-auto p-4 md:p-8">
         
-        <div id="welcomeMessage" class="text-center mt-4 mb-8 text-xl text-indigo-800 dark:text-indigo-300 font-semibold hidden transition-colors duration-300"></div>
+        <div id="welcomeMessage" class="text-center mt-4 mb-8 p-4 rounded-xl bg-indigo-100 dark:bg-indigo-900 text-xl text-indigo-800 dark:text-indigo-300 font-semibold hidden transition-colors duration-300 shadow-lg"></div>
 
         <div id="adminLoginModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center z-50 transition-opacity duration-300">
-            <div class="bg-white p-8 rounded-xl shadow-lg border border-gray-200 max-w-md w-full relative dark:bg-gray-700 dark:text-gray-100 transition-colors duration-300">
+            <div class="bg-white p-8 rounded-xl shadow-2xl border border-gray-200 max-w-md w-full relative dark:bg-gray-700 dark:text-gray-100 transition-colors duration-300">
                 <button id="closeAdminModalButton" class="absolute top-3 right-3 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
@@ -1024,13 +1019,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     <form id="loginForm">
                         <div class="mb-4">
                             <label for="loginEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email:</label>
-                            <input type="email" id="loginEmail" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-gray-100" required>
+                            <input type="email" id="loginEmail" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-gray-100" required>
                         </div>
                         <div class="mb-4">
                             <label for="loginPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña:</label>
-                            <input type="password" id="loginPassword" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-gray-100" required>
+                            <input type="password" id="loginPassword" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-gray-100" required>
                         </div>
-                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-200">
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-200 shadow-md">
                             Ingresar
                         </button>
                     </form>
@@ -1043,21 +1038,21 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     <form id="createAdminForm">
                         <div class="mb-4">
                             <label for="newAdminEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email del Administrador:</label>
-                            <input type="email" id="newAdminEmail" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-gray-100" required>
+                            <input type="email" id="newAdminEmail" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-gray-100" required>
                         </div>
                         <div class="mb-4">
                             <label for="newAdminPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña (Mínimo 6 caracteres):</label>
-                            <input type="password" id="newAdminPassword" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-gray-100" required>
+                            <input type="password" id="newAdminPassword" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-gray-100" required>
                         </div>
                         <div class="mb-4">
                             <label for="newAdminUsername" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre de Usuario (Para logs):</label>
-                            <input type="text" id="newAdminUsername" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-gray-100" required>
+                            <input type="text" id="newAdminUsername" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-gray-100" required>
                         </div>
                         <div class="mb-4">
-                            <label for="secretKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Clave de Promoción (Opcional, para usuarios existentes):</label>
-                            <input type="password" id="secretKey" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-gray-100">
+                            <label for="secretKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Clave de Promoción (Opcional, Clave del Súper Admin: DT10VazC;#9i):</label>
+                            <input type="password" id="secretKey" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-gray-100">
                         </div>
-                        <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200">
+                        <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200 shadow-md">
                             Crear y Promover Administrador
                         </button>
                         <p id="adminMessage" class="mt-4 text-center text-sm"></p>
@@ -1067,29 +1062,32 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         </div>
         <div>
             <main class="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+                <!-- Generador de Consultas -->
                 <section class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 lg:col-span-1 h-fit dark:bg-gray-700 dark:text-gray-100 transition-colors duration-300">
                     <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Generar Código SQL</h2>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">Describe tu consulta o haz clic en un comando rápido de la lista inferior para autocompletar la descripción.</p>
                     <div class="mb-4">
                         <label for="descriptionSearch" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Describe tu necesidad:</label>
-                        <textarea id="descriptionSearch" rows="3" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-600 dark:text-gray-100" placeholder="Ej: Obtener el promedio de ventas de productos por categoría en el último mes.">devuelve datos de una tabla</textarea>
+                        <textarea id="descriptionSearch" rows="3" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-600 dark:text-gray-100" placeholder="Ej: Obtener el promedio de ventas de productos por categoría en el último mes."></textarea>
                     </div>
-                    <button id="descriptionSearchButton" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-200">
+                    <button id="descriptionSearchButton" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-200 shadow-md">
                         Generar Consulta SQL ✨
                     </button>
                     <div id="recommendationResults" class="mt-4"></div>
                     
-                    <h3 class="text-xl font-bold mt-8 mb-2 text-gray-900 dark:text-gray-100">Comandos Rápidos (Clic para usar)</h3> 
-                    <ul id="searchFunctionsList" class="p-2 rounded-lg max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-600">
+                    <h3 class="text-xl font-bold mt-8 mb-2 text-gray-900 dark:text-gray-100 border-t border-gray-300 dark:border-gray-600 pt-4">Comandos Rápidos (Clic para usar)</h3> 
+                    <ul id="searchFunctionsList" class="p-2 rounded-lg max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 shadow-inner">
                         <p class="text-center text-gray-500 dark:text-gray-400 text-sm py-2">Cargando sugerencias...</p>
                     </ul>
                 </section>
 
+                <!-- Listado de Comandos -->
                 <section class="lg:col-span-2">
                     <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 dark:bg-gray-700 dark:text-gray-100 transition-colors duration-300">
                         <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Listado de Comandos SQL</h2> 
                         <div class="mb-4">
                             <label for="functionSearchInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar comandos:</label>
-                            <input type="text" id="functionSearchInput" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-600 dark:text-gray-100" placeholder="Ej: SELECT, ADD, AVG, cadena">
+                            <input type="text" id="functionSearchInput" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-lg focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-600 dark:text-gray-100" placeholder="Ej: SELECT, ADD, AVG, cadena">
                         </div>
                         <div id="functionsList">
                             <p class="text-center text-gray-500 dark:text-gray-400">Cargando comandos...</p>
@@ -1098,85 +1096,57 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 </section>
             </main>
             
-            <section id="notificationsSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 hidden dark:bg-gray-700 transition-colors duration-300">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Notificaciones del Administrador</h2>
-                <div id="notificationsList" class="max-h-64 overflow-y-auto p-3 rounded-lg border border-indigo-300 dark:border-indigo-600 bg-gray-50 dark:bg-gray-600">
-                    <p class="text-center text-gray-500 dark:text-gray-400 text-sm py-2">Esta funcionalidad está deshabilitada en la interfaz. La actividad se registra en Firestore Logs.</p>
-                </div>
-            </section>
-            
+            <!-- Corrector de Sintaxis con IA (Admin Feature) -->
             <section id="fixErrorSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 hidden dark:bg-gray-700 dark:text-gray-100 transition-colors duration-300">
                 <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Corregir y Optimizar SQL con IA</h2>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">Esta es una función avanzada de administrador para asegurar la calidad y optimización de las sentencias.</p>
                 <div class="mb-4">
                     <label for="errorInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ingresa el código SQL con errores o para optimizar:</label>
-                    <textarea id="errorInput" rows="4" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md font-mono focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-600 dark:text-gray-100" placeholder="Ej: SELECT nombre FROM usuarios WHERE edad > 25"></textarea>
+                    <textarea id="errorInput" rows="4" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-lg font-mono focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-600 dark:text-gray-100" placeholder="Ej: SELECT nombre FROM usuarios WHERE edad > 25"></textarea>
                 </div>
                 <div class="mb-4">
                     <label for="correctionKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Clave de Promoción (DT10VazC;#9i):</label>
-                    <input type="password" id="correctionKey" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-600 dark:text-gray-100">
+                    <input type="password" id="correctionKey" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-lg focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-600 dark:text-gray-100">
                 </div>
-                <button id="fixButton" type="button" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200">
+                <button id="fixButton" type="button" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200 shadow-md">
                         Corregir Sintaxis ✨
                     </button>
                     <div id="correctionResult"></div>
-                </section>
+            </section>
 
+            <!-- Sección de Agregar Comando (Admin Feature) -->
             <section id="addFunctionSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mt-8 hidden dark:bg-gray-700 dark:text-gray-100 transition-colors duration-300">
                 <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Agregar Nuevo Comando/Concepto</h2> 
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">Usa el botón "Pre-validar" para asegurar la calidad de la sintaxis antes de guardar.</p>
                 <form id="addFunctionForm">
                     <div class="mb-4">
                         <label for="funcName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del Comando/Concepto (Ej: SELECT, UPDATE, AVG, DDL):</label> 
-                        <input type="text" id="funcName" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-gray-100" required>
+                        <input type="text" id="funcName" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-gray-100" required>
                     </div>
                     <div class="mb-4">
                         <label for="funcDescription" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descripción breve:</label>
-                        <textarea id="funcDescription" rows="3" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-gray-100" required></textarea>
+                        <textarea id="funcDescription" rows="3" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-gray-100" required></textarea>
                     </div>
                     <div class="mb-4">
                         <label for="funcSyntax" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sintaxis (Ej. SELECT * FROM tabla;):</label>
-                        <textarea id="funcSyntax" rows="3" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md font-mono dark:bg-gray-600 dark:text-gray-100" required></textarea>
+                        <textarea id="funcSyntax" rows="3" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-lg font-mono dark:bg-gray-600 dark:text-gray-100" required></textarea>
                     </div>
                     
-                    <button id="validateSyntaxButton" type="button" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 transition duration-200 mb-3">
+                    <button id="validateSyntaxButton" type="button" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 transition duration-200 mb-3 shadow-md">
                         Pre-validar Sintaxis con IA ✨
                     </button>
                     <div id="validationMessage" class="mt-4 text-center"></div>
-                    <button id="addFunctionButton" type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition duration-200">
+                    <button id="addFunctionButton" type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition duration-200 shadow-md">
                         Guardar Comando
                     </button>
                 </form>
                 <div id="statusMessage" class="mt-4 text-center"></div>
             </section>
 
-                        <section id="adminManagementSection" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mt-8 mb-8 hidden dark:bg-gray-700 dark:text-gray-100 transition-colors duration-300">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Crear Nuevo Usuario Administrador</h2>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Crea una nueva cuenta de Auth y asigna permisos de administrador en Firestore.</p>
-                <form id="createAdminForm">
-                    <div class="mb-4">
-                        <label for="newAdminEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email del Administrador:</label>
-                        <input type="email" id="newAdminEmail" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-gray-100" required>
-                    </div>
-                    <div class="mb-4">
-                        <label for="newAdminPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña (Mínimo 6 caracteres):</label>
-                        <input type="password" id="newAdminPassword" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-gray-100" required>
-                    </div>
-                    <div class="mb-4">
-                        <label for="newAdminUsername" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre de Usuario (Para logs):</label>
-                        <input type="text" id="newAdminUsername" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-gray-100" required>
-                    </div>
-                    <div class="mb-4">
-                        <label for="secretKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Clave de Promoción (Opcional, para usuarios existentes):</label>
-                        <input type="password" id="secretKey" class="w-full p-2 border border-gray-400 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-gray-100">
-                    </div>
-                    <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200">
-                        Crear y Promover Administrador
-                    </button>
-                    <p id="adminMessage" class="mt-4 text-center text-sm"></p>
-                </form>
-            </section>
         </div>
     </div>
 
+    <!-- Modal de Confirmación (Reemplaza a alert/confirm) -->
         <div id="confirmModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center z-50 transition-opacity duration-300">
         <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full transform transition-all duration-300 scale-100 dark:bg-gray-700 dark:text-gray-100">
             <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Confirmación Requerida</h3>
