@@ -250,3 +250,49 @@ document.addEventListener("DOMContentLoaded", () => {
     .getElementById("confirmBtn")
     .addEventListener("click", () => handleConfirm(true));
 });
+
+// ==========================================
+// RESTAURAR TODOS LOS EVENTOS DE LOS BOTONES
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+  // Aseguramos que Firebase esté listo
+  initializeTheme();
+  initFirebase();
+
+  // Tema
+  document.getElementById("darkModeToggle").addEventListener("change", toggleDarkMode);
+
+  // Modal de confirmación
+  document.getElementById("cancelBtn").addEventListener("click", () => handleConfirm(false));
+  document.getElementById("confirmBtn").addEventListener("click", () => handleConfirm(true));
+
+  // --- NUEVOS EVENTOS ---
+  const loginBtn = document.getElementById("showLoginButton");
+  const loginForm = document.getElementById("loginForm");
+  const generateBtn = document.getElementById("descriptionSearchButton");
+
+  if (loginBtn) {
+    loginBtn.addEventListener("click", () => {
+      document.getElementById("adminLoginModal").classList.remove("hidden");
+      document.getElementById("adminLoginModal").classList.add("flex");
+    });
+  }
+
+  if (loginForm) {
+    loginForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      console.log("Intentando iniciar sesión...");
+      login(e);
+    });
+  }
+
+  if (generateBtn) {
+    generateBtn.addEventListener("click", () => {
+      console.log("Generando consulta...");
+      generateSQLQuery();
+    });
+  }
+
+  console.log("Eventos cargados correctamente ✅");
+});
+
