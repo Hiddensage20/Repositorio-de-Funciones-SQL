@@ -57,17 +57,32 @@ const showMessage = (targetId, text, type='info')=>{
   tgt.innerHTML = `<div class="p-3 rounded ${color}">${text}</div>`;
 };
 
-// ========== theme ==========
-const initializeTheme = ()=>{
-  const isDark = localStorage.getItem('darkMode') === 'true';
-  if(isDark) document.body.classList.add('dark');
-  el('darkModeToggle').checked = !!isDark;
-  el('darkModeToggle').addEventListener('change', ()=>{
-    const now = el('darkModeToggle').checked;
-    localStorage.setItem('darkMode', now);
-    document.body.classList.toggle('dark', now);
+// ========== theme (modo claro/oscuro mejorado) ==========
+const initializeTheme = () => {
+  const toggle = el("darkModeToggle");
+  const savedTheme = localStorage.getItem("theme") || "light";
+
+  // aplica tema guardado
+  if (savedTheme === "dark") {
+    document.body.classList.add("dark");
+    toggle.checked = true;
+  } else {
+    document.body.classList.remove("dark");
+    toggle.checked = false;
+  }
+
+  // escucha cambios del switch
+  toggle.addEventListener("change", () => {
+    if (toggle.checked) {
+      document.body.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.body.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
   });
 };
+
 
 // ========== firebase init ==========
 async function initFirebase(){
