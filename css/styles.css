@@ -1,18 +1,27 @@
 body {
   font-family: 'Inter', system-ui, sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
+  background-color: #ffffff;
+  color: #111827;
 }
 
 .card {
   border-radius: 12px;
   box-shadow: 0 6px 18px rgba(10, 10, 10, 0.06);
   padding: 20px;
-  background: white;
+  background: #111827;
+  color: #f9fafb;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.dark {
+  background-color: #111827;
+  color: #f9fafb;
 }
 
 .dark .card {
-  background: #1f2937;
-  color: #e5e7eb;
+  background: #ffffff;
+  color: #111827;
 }
 
 button:disabled {
