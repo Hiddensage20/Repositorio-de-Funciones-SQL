@@ -3,10 +3,16 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.toggle {
-  width: 40px;
-  height: 20px;
-  accent-color: #6366f1;
+.card {
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(10, 10, 10, 0.06);
+  padding: 20px;
+  background: white;
+}
+
+.dark .card {
+  background: #1f2937;
+  color: #e5e7eb;
 }
 
 button:disabled {
@@ -19,11 +25,8 @@ button:disabled {
   word-wrap: break-word;
 }
 
-.fade-in {
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
+.center {
+  max-width: 900px;
+  margin: 18px auto;
+  padding: 0 16px;
 }
