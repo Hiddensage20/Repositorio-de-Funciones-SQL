@@ -122,13 +122,18 @@ function renderFunctions(){
       window.scrollTo({top:0,behavior:'smooth'});
     });
     delBtn?.addEventListener('click', async ()=>{
-      if(!confirm('Eliminar comando?')) return;
-      try{
-        await deleteDoc(doc(db, FUNCTIONS_PATH, f.id));
-        alert('Eliminado');
-      }catch(e){ alert('err '+e); }
-    });
-  });
+  if (!loggedInUser) {
+    alert('⚠️ Debes iniciar sesión como administrador para eliminar comandos.');
+    return;
+  }
+  if (!confirm('¿Seguro que deseas eliminar este comando?')) return;
+  try {
+    await deleteDoc(doc(db, FUNCTIONS_PATH, f.id));
+    alert('Comando eliminado con éxito.');
+  } catch (e) {
+    alert('Error eliminando: ' + e.message);
+  }
+});
 }
 
 // ========== GENERAR CONSULTA (Gemini) ==========
