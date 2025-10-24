@@ -1022,3 +1022,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (funcDescEl) funcDescEl.addEventListener('input', resetValidation);
     if (funcSyntaxEl) funcSyntaxEl.addEventListener('input', resetValidation);
 });
+
+// =====================================================
+// EXPONER FUNCIONES GLOBALES PARA EVENTOS EN EL DOM
+// =====================================================
+window.generateSQLQuery = generateSQLQuery;
+window.login = login;
