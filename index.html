@@ -122,7 +122,7 @@ if (type === 'error') {
 } else if (type === 'success') {
                 tempStatusMessage.classList.add('bg-emerald-200', 'text-emerald-800');
 } else {
-                // Tema Blueberry: Info messages are light blue
+                // Tema Blueberry Oscuro: Info messages are light blue
                 tempStatusMessage.classList.add('bg-blue-200', 'text-blue-800');
 }
 
@@ -175,16 +175,16 @@ if (functionsToDisplay.length === 0) {
 
             functionsToDisplay.forEach(func => {
                 const funcItem = document.createElement('div');
-                // Tema Blueberry: Card background is light blue-100
-                funcItem.className = 'p-4 rounded-lg shadow-md mb-4 bg-blue-100';
+                // Tema Blueberry Oscuro: Card background is light gray-700
+                funcItem.className = 'p-4 rounded-lg shadow-md mb-4 bg-gray-700';
                 
     
                 funcItem.innerHTML = `
-                    <h3 class="text-xl font-bold text-gray-800">${func.name}</h3>
-                    <p class="text-sm text-gray-600 mb-2"><strong>Descripción:</strong> ${func.description}</p>
-                    <div class="p-3 rounded-lg border border-gray-400 overflow-x-auto bg-white">
+                    <h3 class="text-xl font-bold text-gray-100">${func.name}</h3>
+                    <p class="text-sm text-gray-300 mb-2"><strong>Descripción:</strong> ${func.description}</p>
+                    <div class="p-3 rounded-lg border border-gray-600 overflow-x-auto bg-gray-800">
          
-                       <pre class="whitespace-pre-wrap font-mono text-gray-800"><code>${func.syntax}</code></pre>
+                       <pre class="whitespace-pre-wrap font-mono text-gray-100"><code>${func.syntax}</code></pre>
                     </div>
                     <div class="mt-4 flex space-x-2 ${isUserLoggedIn ? '' : 'hidden'}">
                         <button class="edit-btn bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg 
@@ -200,7 +200,7 @@ funcItem.querySelector('.delete-btn').addEventListener('click', () => deleteFunc
                 }
 
                 const searchItem = document.createElement('li');
-searchItem.className = 'hover:bg-blue-300 cursor-pointer p-2 rounded-md transition duration-150'; // Tema Blueberry: Blue hover
+searchItem.className = 'hover:bg-blue-700 cursor-pointer p-2 rounded-md transition duration-150 text-gray-100'; // Tema Blueberry Oscuro: Blue hover
                 searchItem.textContent = func.name;
 searchItem.onclick = () => {
                     document.getElementById('descriptionSearch').value = func.description;
@@ -294,14 +294,12 @@ validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-emerald-800 bg
 return { valid: true };
                 } else if (responseText.startsWith('NO:SUGERENCIA DE COMANDO:')) {
                     const suggestion = responseText.replace('NO:SUGERENCIA DE COMANDO:', '').trim();
-const userMessage = `Error de Sintaxis: Lo que ingresaste NO es un comando SQL válido. Sugerencia de la IA: **${suggestion}**.
-Por favor, ajusta la sintaxis y vuelve a validar.`;
+const userMessage = `Error de Sintaxis: Lo que ingresaste NO es un comando SQL válido. Sugerencia de la IA: **${suggestion}**.\nPor favor, ajusta la sintaxis y vuelve a validar.`;
                     
                     validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">${userMessage}</p>`;
 return { valid: false };
                 } else {
-                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error: La sintaxis no es válida.
-Inténtalo de nuevo.</p>`;
+                    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error: La sintaxis no es válida.\nInténtalo de nuevo.</p>`;
                     return { valid: false };
                 }
             } catch (error) {
@@ -360,11 +358,11 @@ try {
 const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
                 
                 const sqlCode = text.replace(/```sql|```/g, '').trim();
-                // Tema Blueberry: Use a neutral/light blue color scheme for the code block
+                // Tema Blueberry Oscuro: Use dark background for code block
 resultsDiv.innerHTML = `
-                    <h3 class="text-xl font-bold mt-4 mb-2 text-gray-900">Consulta Generada:</h3>
-                    <div class="bg-gray-100 p-4 rounded-lg border border-blue-400 overflow-x-auto">
-                        <pre class="whitespace-pre-wrap font-mono text-blue-800"><code>${sqlCode}</code></pre>
+                    <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Consulta Generada:</h3>
+                    <div class="bg-gray-800 p-4 rounded-lg border border-blue-400 overflow-x-auto">
+                        <pre class="whitespace-pre-wrap font-mono text-gray-100"><code>${sqlCode}</code></pre>
                    
  </div>
                 `;
@@ -658,7 +656,7 @@ return;
                 
                 // Mostrar botones de administración en el menú
                 document.getElementById('adminDropdownLogin').classList.add('hidden');
-document.getElementById('adminDropdownLogout').classList.remove('hidden');
+document.getElementById('adminDropdownLogout').classList.add('hidden');
                 document.getElementById('adminDropdownManagement').classList.remove('hidden');
 
 
@@ -788,7 +786,7 @@ try {
 
                 const correctedCode = text.replace(/```sql|```/g, '').trim();
 resultDiv.innerHTML = `
-                    <h3 class="text-xl font-bold mt-4 mb-2 text-gray-900">Código Corregido/Optimizado:</h3>
+                    <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Código Corregido/Optimizado:</h3>
                     <div class="bg-emerald-100 p-4 rounded-lg border border-emerald-400 overflow-x-auto">
                         <pre class="whitespace-pre-wrap font-mono text-emerald-800"><code>${correctedCode}</code></pre>
                    
@@ -869,7 +867,7 @@ document.getElementById('validationMessage').innerHTML = '';
         });
 </script>
 </head>
-<body class="bg-white font-sans leading-normal tracking-normal text-gray-800">
+<body class="bg-gray-900 font-sans leading-normal tracking-normal text-gray-100">
 
     <header class="bg-blue-700 shadow-xl sticky top-0 z-10">
         <div class="container mx-auto px-4 md:px-8 py-3 flex justify-between items-center">
@@ -884,7 +882,7 @@ document.getElementById('validationMessage').innerHTML = '';
                         <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
  
                     </button>
-                    <ul class="dropdown-menu absolute hidden text-gray-700 pt-1 right-0 z-20 w-64 shadow-xl border border-gray-200 bg-white rounded-lg overflow-hidden transition-colors duration-300">
+                    <ul class="dropdown-menu absolute hidden text-gray-100 pt-1 right-0 z-20 w-64 shadow-xl border border-gray-600 bg-gray-800 rounded-lg overflow-hidden transition-colors duration-300">
                         
                    
       <li id="adminDropdownLogin">
@@ -895,7 +893,7 @@ document.getElementById('validationMessage').innerHTML = '';
                         </li>
 
                         <li id="adminDropdownManagement" class="hidden">
-                            <a id="showAdminManagementButton" class="bg-sky-100 hover:bg-sky-200 text-gray-800 py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm font-medium transition-colors duration-300">
+                            <a id="showAdminManagementButton" class="bg-gray-700 hover:bg-gray-600 text-gray-100 py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm font-medium transition-colors duration-300">
   
                                 Crear Admin
                             </a>
@@ -908,7 +906,7 @@ document.getElementById('validationMessage').innerHTML = '';
                             </a>
                         </li>
 
-                        <li class="p-2 border-t text-xs text-gray-500">
+                        <li class="p-2 border-t border-gray-600 text-xs text-gray-400">
               
                           <p id="userIdDisplay">Tu ID de usuario: ...</p>
                         </li>
@@ -922,29 +920,29 @@ document.getElementById('validationMessage').innerHTML = '';
 
     <div class="container mx-auto p-4 md:p-8">
         
-        <div id="welcomeMessage" class="text-center mt-4 mb-8 text-xl text-blue-800 font-semibold hidden transition-colors duration-300"></div>
+        <div id="welcomeMessage" class="text-center mt-4 mb-8 text-xl text-blue-300 font-semibold hidden transition-colors duration-300"></div>
 
         <div id="adminLoginModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center z-50 transition-opacity duration-300">
-            <div class="bg-white p-8 rounded-xl shadow-lg border border-gray-200 max-w-md w-full relative">
+            <div class="bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-600 max-w-md w-full relative text-gray-100">
                 <button id="closeAdminModalButton" 
-class="absolute top-3 right-3 text-gray-500 hover:text-gray-800">
+class="absolute top-3 right-3 text-gray-400 hover:text-white">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
 
                 <div id="adminLoginContainer">
-                    <h2 class="text-2xl font-bold mb-4 text-gray-900 
+                    <h2 class="text-2xl font-bold mb-4 text-gray-100 
 text-center">Inicio de Sesión (Admin)</h2>
-                    <p class="text-sm text-gray-500 text-center mb-4">Ingresa con tu email y contraseña de administrador.</p>
+                    <p class="text-sm text-gray-400 text-center mb-4">Ingresa con tu email y contraseña de administrador.</p>
                     <form id="loginForm">
                         <div class="mb-4">
                   
-                      <label for="loginEmail" class="block text-sm font-medium text-gray-700 mb-1">Email:</label>
-                            <input type="email" id="loginEmail" class="w-full p-2 border border-gray-300 rounded-md" required>
+                      <label for="loginEmail" class="block text-sm font-medium text-gray-300 mb-1">Email:</label>
+                            <input type="email" id="loginEmail" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100" required>
                         </div>
                     
      <div class="mb-4">
-                            <label for="loginPassword" class="block text-sm font-medium text-gray-700 mb-1">Contraseña:</label>
-                            <input type="password" id="loginPassword" class="w-full p-2 border border-gray-300 rounded-md" required>
+                            <label for="loginPassword" class="block text-sm font-medium text-gray-300 mb-1">Contraseña:</label>
+                            <input type="password" id="loginPassword" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100" required>
                      
     </div>
                         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
@@ -956,30 +954,30 @@ text-center">Inicio de Sesión (Admin)</h2>
                 </div>
 
                 <div id="createAdminContainer" class="hidden">
-                    <h2 class="text-2xl font-bold mb-4 text-gray-900 text-center">Crear Nuevo 
+                    <h2 class="text-2xl font-bold mb-4 text-gray-100 text-center">Crear Nuevo 
 Usuario Administrador</h2>
-                    <p class="text-sm text-gray-600 mb-4">Crea una nueva cuenta de Auth y asigna permisos de administrador en Firestore.</p>
+                    <p class="text-sm text-gray-400 mb-4">Crea una nueva cuenta de Auth y asigna permisos de administrador en Firestore.</p>
                     <form id="createAdminForm">
                         <div class="mb-4">
                  
-                       <label for="newAdminEmail" class="block text-sm font-medium text-gray-700 mb-1">Email del Administrador:</label>
-                            <input type="email" id="newAdminEmail" class="w-full p-2 border border-gray-400 rounded-md" required>
+                       <label for="newAdminEmail" class="block text-sm font-medium text-gray-300 mb-1">Email del Administrador:</label>
+                            <input type="email" id="newAdminEmail" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100" required>
                         </div>
                  
                 <div class="mb-4">
-                            <label for="newAdminPassword" class="block text-sm font-medium text-gray-700 mb-1">Contraseña (Mínimo 6 caracteres):</label>
-                            <input type="password" id="newAdminPassword" class="w-full p-2 border border-gray-400 rounded-md" required>
+                            <label for="newAdminPassword" class="block text-sm font-medium text-gray-300 mb-1">Contraseña (Mínimo 6 caracteres):</label>
+                            <input type="password" id="newAdminPassword" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100" required>
                
                       </div>
                         <div class="mb-4">
-                            <label for="newAdminUsername" class="block text-sm font-medium text-gray-700 mb-1">Nombre de Usuario (Para logs):</label>
+                            <label for="newAdminUsername" class="block text-sm font-medium text-gray-300 mb-1">Nombre de Usuario (Para logs):</label>
                            
-                          <input type="text" id="newAdminUsername" class="w-full p-2 border border-gray-400 rounded-md" required>
+                          <input type="text" id="newAdminUsername" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100" required>
                         </div>
                         <div class="mb-4">
-                            <label for="secretKey" class="block text-sm font-medium text-gray-700 mb-1">Clave de Promoción (Opcional, 
+                            <label for="secretKey" class="block text-sm font-medium text-gray-300 mb-1">Clave de Promoción (Opcional, 
 para usuarios existentes):</label>
-                            <input type="password" id="secretKey" class="w-full p-2 border border-gray-400 rounded-md">
+                            <input type="password" id="secretKey" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100">
                         </div>
                         <button type="submit" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 
 focus:ring-sky-500 focus:ring-offset-2 transition duration-200">
@@ -993,13 +991,13 @@ focus:ring-sky-500 focus:ring-offset-2 transition duration-200">
         </div>
         <div>
             <main class="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-                <section class="bg-white p-6 rounded-xl shadow-lg border border-blue-200 lg:col-span-1 h-fit transition-colors duration-300">
+                <section class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-600 lg:col-span-1 h-fit text-gray-100">
      
-                   <h2 class="text-2xl font-bold mb-4 text-gray-900">Generar Código SQL</h2>
+                   <h2 class="text-2xl font-bold mb-4 text-gray-100">Generar Código SQL</h2>
                     <div class="mb-4">
-                        <label for="descriptionSearch" class="block text-sm font-medium text-gray-700 mb-1">Describe tu necesidad:</label>
+                        <label for="descriptionSearch" class="block text-sm font-medium text-gray-300 mb-1">Describe tu necesidad:</label>
                         
- <textarea id="descriptionSearch" rows="3" class="w-full p-2 border border-gray-400 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Ej: Obtener el promedio de ventas de productos por categoría en el último mes.">devuelve datos de una tabla</textarea>
+ <textarea id="descriptionSearch" rows="3" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-100" placeholder="Ej: Obtener el promedio de ventas de productos por categoría en el último mes.">devuelve datos de una tabla</textarea>
                     </div>
                     <button id="descriptionSearchButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
                
@@ -1007,50 +1005,50 @@ focus:ring-sky-500 focus:ring-offset-2 transition duration-200">
                     </button>
                     <div id="recommendationResults" class="mt-4"></div>
                     
-                    <h3 class="text-xl font-bold mt-8 mb-2 text-gray-900 
+                    <h3 class="text-xl font-bold mt-8 mb-2 text-gray-100 
 ">Comandos Rápidos (Clic para usar)</h3> 
-                    <ul id="searchFunctionsList" class="p-2 rounded-lg max-h-48 overflow-y-auto border border-blue-300 bg-gray-100">
-                        <p class="text-center text-gray-500 text-sm py-2">Cargando sugerencias...</p>
+                    <ul id="searchFunctionsList" class="p-2 rounded-lg max-h-48 overflow-y-auto border border-gray-600 bg-gray-700">
+                        <p class="text-center text-gray-400 text-sm py-2">Cargando sugerencias...</p>
                     </ul>
                
   </section>
 
                 <section class="lg:col-span-2">
-                    <div class="bg-white p-6 rounded-xl shadow-lg border border-blue-200 mb-8 transition-colors duration-300">
-                        <h2 class="text-2xl font-bold mb-4 text-gray-900">Listado de Comandos SQL</h2> 
+                    <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-600 mb-8 text-gray-100">
+                        <h2 class="text-2xl font-bold mb-4 text-gray-100">Listado de Comandos SQL</h2> 
                   
                       <div class="mb-4">
-                            <label for="functionSearchInput" class="block text-sm font-medium text-gray-700 mb-1">Buscar comandos:</label>
-                            <input type="text" id="functionSearchInput" class="w-full p-2 border border-gray-400 rounded-md focus:ring-sky-500 focus:border-sky-500" placeholder="Ej: SELECT, ADD, AVG, cadena">
+                            <label for="functionSearchInput" class="block text-sm font-medium text-gray-300 mb-1">Buscar comandos:</label>
+                            <input type="text" id="functionSearchInput" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md focus:ring-sky-500 focus:border-sky-500 text-gray-100" placeholder="Ej: SELECT, ADD, AVG, cadena">
             
                       </div>
                         <div id="functionsList">
-                            <p class="text-center text-gray-500">Cargando comandos...</p>
+                            <p class="text-center text-gray-400">Cargando comandos...</p>
                         </div>
        
                       </div>
                 </section>
             </main>
             
-            <section id="notificationsSection" class="bg-white p-6 rounded-xl shadow-lg border border-blue-200 mb-8 hidden transition-colors duration-300">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900">Notificaciones del 
+            <section id="notificationsSection" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-600 mb-8 hidden text-gray-100">
+                <h2 class="text-2xl font-bold mb-4 text-gray-100">Notificaciones del 
 Administrador</h2>
-                <div id="notificationsList" class="max-h-64 overflow-y-auto p-3 rounded-lg border border-blue-300 bg-gray-50">
-                    <p class="text-center text-gray-500 text-sm py-2">Esta funcionalidad está deshabilitada en la interfaz.\nLa actividad se registra en Firestore Logs.</p>
+                <div id="notificationsList" class="max-h-64 overflow-y-auto p-3 rounded-lg border border-blue-700 bg-gray-700">
+                    <p class="text-center text-gray-400 text-sm py-2">Esta funcionalidad está deshabilitada en la interfaz.\nLa actividad se registra en Firestore Logs.</p>
                 </div>
             </section>
             
-            <section id="fixErrorSection" class="bg-white p-6 rounded-xl shadow-lg border border-blue-200 mb-8 hidden transition-colors duration-300">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900">Corregir y Optimizar SQL con IA</h2>
+            <section id="fixErrorSection" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-600 mb-8 hidden text-gray-100">
+                <h2 class="text-2xl font-bold mb-4 text-gray-100">Corregir y Optimizar SQL con IA</h2>
    
               <div class="mb-4">
-                    <label for="errorInput" class="block text-sm font-medium text-gray-700 mb-1">Ingresa el código SQL con errores o para optimizar:</label>
-                    <textarea id="errorInput" rows="4" class="w-full p-2 border border-gray-400 rounded-md font-mono focus:ring-sky-500 focus:border-sky-500" placeholder="Ej: SELECT nombre FROM usuarios WHERE edad > 25"></textarea>
+                    <label for="errorInput" class="block text-sm font-medium text-gray-300 mb-1">Ingresa el código SQL con errores o para optimizar:</label>
+                    <textarea id="errorInput" rows="4" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md font-mono focus:ring-sky-500 focus:border-sky-500 text-gray-100" placeholder="Ej: SELECT nombre FROM usuarios WHERE edad > 25"></textarea>
          
               </div>
                 <div class="mb-4">
-                    <label for="correctionKey" class="block text-sm font-medium text-gray-700 mb-1">Clave de Promoción (DT10VazC;#9i):</label>
-                    <input type="password" id="correctionKey" class="w-full p-2 border border-gray-400 rounded-md focus:ring-sky-500 focus:border-sky-500">
+                    <label for="correctionKey" class="block text-sm font-medium text-gray-300 mb-1">Clave de Promoción (DT10VazC;#9i):</label>
+                    <input type="password" id="correctionKey" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md focus:ring-sky-500 focus:border-sky-500 text-gray-100">
               
                </div>
                 <button id="fixButton" type="button" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 transition duration-200">
@@ -1060,23 +1058,23 @@ Administrador</h2>
  <div id="correctionResult"></div>
                 </section>
 
-            <section id="addFunctionSection" class="bg-white p-6 rounded-xl shadow-lg border border-blue-200 mt-8 hidden transition-colors duration-300">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900">Agregar Nuevo Comando/Concepto</h2> 
+            <section id="addFunctionSection" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-600 mt-8 hidden text-gray-100">
+                <h2 class="text-2xl font-bold mb-4 text-gray-100">Agregar Nuevo Comando/Concepto</h2> 
                 <form id="addFunctionForm">
                  
                    <div class="mb-4">
-                        <label for="funcName" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Comando/Concepto (Ej: SELECT, UPDATE, AVG, DDL):</label> 
-                        <input type="text" id="funcName" class="w-full p-2 border border-gray-400 rounded-md" required>
+                        <label for="funcName" class="block text-sm font-medium text-gray-300 mb-1">Nombre del Comando/Concepto (Ej: SELECT, UPDATE, AVG, DDL):</label> 
+                        <input type="text" id="funcName" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100" required>
                     </div>
   
                       <div class="mb-4">
-                        <label for="funcDescription" class="block text-sm font-medium text-gray-700 mb-1">Descripción breve:</label>
-                        <textarea id="funcDescription" rows="3" class="w-full p-2 border border-gray-400 rounded-md" required></textarea>
+                        <label for="funcDescription" class="block text-sm font-medium text-gray-300 mb-1">Descripción breve:</label>
+                        <textarea id="funcDescription" rows="3" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100" required></textarea>
               
                </div>
                     <div class="mb-4">
-                        <label for="funcSyntax" class="block text-sm font-medium text-gray-700 mb-1">Sintaxis (Ej.\nSELECT * FROM tabla;):</label>
-                        <textarea id="funcSyntax" rows="3" class="w-full p-2 border border-gray-400 rounded-md font-mono" required></textarea>
+                        <label for="funcSyntax" class="block text-sm font-medium text-gray-300 mb-1">Sintaxis (Ej.\nSELECT * FROM tabla;):</label>
+                        <textarea id="funcSyntax" rows="3" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md font-mono text-gray-100" required></textarea>
                     </div>
                     
                     <button 
@@ -1097,12 +1095,12 @@ id="validateSyntaxButton" type="button" class="w-full bg-blue-500 hover:bg-blue-
     </div>
 
         <div id="confirmModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center z-50 transition-opacity duration-300">
-        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full transform transition-all duration-300 scale-100">
-            <h3 class="text-xl font-bold text-gray-900 mb-4">Confirmación Requerida</h3>
-            <p id="confirmModalMessage" class="text-gray-700 mb-6">¿Estás seguro de que quieres realizar esta acción?</p>
+        <div class="bg-gray-800 p-6 rounded-xl shadow-2xl max-w-sm w-full transform transition-all duration-300 scale-100 text-gray-100">
+            <h3 class="text-xl font-bold text-gray-100 mb-4">Confirmación Requerida</h3>
+            <p id="confirmModalMessage" class="text-gray-300 mb-6">¿Estás seguro de que quieres realizar esta acción?</p>
       
                <div class="flex justify-end space-x-3">
-                <button id="cancelBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-200">
+                <button id="cancelBtn" class="bg-gray-600 hover:bg-gray-500 text-gray-100 font-bold py-2 px-4 rounded-lg transition duration-200">
                     Cancelar
                 </button>
                 <button id="confirmBtn" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-lg transition 
