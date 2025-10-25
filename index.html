@@ -312,7 +312,7 @@ const sendWelcomeMessage = async (lastLogin, username) => {
     const welcomeMessageDiv = document.getElementById('welcomeMessage');
     let actionsSummary = '';
     
-    // Lógica de logs aquí... (omito el cuerpo para brevedad, asumo que es correcto)
+    // Lógica de logs aquí... 
     
     const diffMs = lastLogin ?
     new Date() - lastLogin.toDate() : null;
@@ -403,7 +403,7 @@ const login = async (event) => {
             lastLogin: null 
         };
         userFound = true;
-        // Lógica de logs aquí... (omito el cuerpo para brevedad, asumo que es correcto)
+        // Lógica de logs aquí... 
 
     } catch (e) {
         console.error("Error de autenticación:", e);
@@ -447,6 +447,81 @@ const login = async (event) => {
         }, { merge: true });
         showMessage(`¡Bienvenido, ${loggedInUser.username}! Has iniciado sesión con éxito.`, 'success');
         document.getElementById('welcomeMessage').classList.remove('hidden');
+    }
+};
+
+const createAdmin = async (event) => {
+    event.preventDefault();
+    const newAdminEmail = document.getElementById('newAdminEmail').value.trim();
+    const newAdminPassword = document.getElementById('newAdminPassword').value;
+    const newAdminUsername = document.getElementById('newAdminUsername').value.trim();
+    const secretKey = document.getElementById('secretKey').value;
+    const adminMessage = document.getElementById('adminMessage');
+    adminMessage.textContent = '';
+    adminMessage.className = 'mt-4 text-center text-sm';
+    
+    const isPromotingExistingUser = secretKey === SUPER_ADMIN_KEY;
+    if (!newAdminEmail || !newAdminPassword || !newAdminUsername) {
+        adminMessage.textContent = 'Todos los campos son obligatorios.';
+        adminMessage.classList.add('text-rose-500');
+        return;
+    }
+    
+    let uid = null;
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, newAdminEmail, newAdminPassword);
+        uid = userCredential.user.uid;
+    } catch (e) {
+        if (e.code === 'auth/email-already-in-use') {
+            if (isPromotingExistingUser) {
+                try {
+                    const userCredential = await signInWithEmailAndPassword(auth, newAdminEmail, newAdminPassword);
+                    uid = userCredential.user.uid;
+                    await signOut(auth);
+                    adminMessage.textContent = 'Advertencia: El email ya existía.\nSe asignarán permisos de administrador.';
+                    adminMessage.classList.add('text-yellow-500');
+                } catch (signInError) {
+                    let displayError = 'Error: El email ya está registrado, pero la contraseña no coincide.\nNo se puede obtener el UID para asignar permisos.';
+                    adminMessage.textContent = displayError;
+                    adminMessage.classList.add('text-rose-500');
+                    return;
+                }
+            } else {
+                adminMessage.textContent = 'Error: El email ya está registrado.\nPara promocionar a un usuario existente, ingrese la clave secreta.';
+                adminMessage.classList.add('text-rose-500');
+                return;
+            }
+        } else if (e.code === 'auth/weak-password') {
+            adminMessage.textContent = 'Error: La contraseña debe tener al menos 6 caracteres.';
+            adminMessage.classList.add('text-rose-500');
+            return;
+        } else {
+            console.error("Error al crear usuario Auth:", e);
+            adminMessage.textContent = `Error (${e.code || 'unknown-error'}): No se pudo crear la cuenta de usuario.`;
+            adminMessage.classList.add('text-rose-500');
+            return;
+        }
+    }
+    
+    if (!uid) { return; } 
+
+    try {
+        await setDoc(doc(db, ADMINS_PATH, uid), {
+            uid: uid,
+            username: newAdminUsername,
+            email: newAdminEmail,
+            isAdmin: true, 
+            lastLogin: null
+        }, { merge: true });
+        if (!adminMessage.classList.contains('text-yellow-500')) {
+            adminMessage.textContent = `Administrador ${newAdminUsername} creado con éxito.\nAhora puede iniciar sesión con su email y contraseña.`;
+            adminMessage.classList.add('text-emerald-500');
+        }
+        document.getElementById('createAdminForm').reset();
+    } catch (e) {
+        console.error("Error al registrar administrador en Firestore:", e);
+        adminMessage.textContent = 'Error: Se creó la cuenta de Auth, pero falló el registro de permisos en Firestore.';
+        adminMessage.classList.add('text-rose-500');
     }
 };
 // ************************************************************
@@ -522,13 +597,70 @@ const validateFunctionWithAI = async () => {
     const validationMessageDiv = document.getElementById('validationMessage');
     const validateButton = document.getElementById('validateSyntaxButton');
     
-    // ... (Validaciones y lógica de IA aquí, similar a runSQLQuery)
+    if (!loggedInUser) {
+        validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Debes iniciar sesión para pre-validar la sintaxis.</p>`;
+        return;
+    }
+
+    if (!name || !description || !syntax) {
+        validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Completa los campos Nombre, Descripción y Sintaxis para validar.</p>`;
+        return;
+    }
+
+    validateButton.textContent = 'Validando...';
+    validateButton.disabled = true;
+    validationMessageDiv.innerHTML = `<p class="mt-2 text-center p-3 rounded-lg font-medium bg-blue-200 text-blue-800">Analizando sintaxis con IA...</p>`;
+    isSyntaxValid = false;
     
-    // NOTA: Implementación de la IA omitida por brevedad. Asumo que es correcta.
-    validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-emerald-800 bg-emerald-200 p-3 rounded-lg">¡Validación exitosa simulada!</p>`;
-    isSyntaxValid = true;
-    validateButton.textContent = 'Pre-validar Sintaxis con IA ✨';
-    validateButton.disabled = false;
+    const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`; 
+    
+    let prompt = `Eres un experto en SQL.
+    El usuario está intentando guardar un comando SQL.
+    1. **Comando/Concepto Intendado:** "${name}"
+    2. **Descripción:** "${description}"
+    3. **Sintaxis proporcionada:** "${syntax}"
+
+    Evalúa si la 'Sintaxis proporcionada' es un comando SQL bien formado (DDL, DML, TCL, o una función SQL) y que esté razonablemente relacionado con el 'Comando/Concepto Intendado'.
+    - Si la Sintaxis es un comando SQL válido, responde con: SI:VALIDA
+    - Si la Sintaxis NO es un comando SQL válido (ej. está incompleto o es erróneo), analiza la sintaxis y la descripción para sugerir el comando SQL que el usuario probablemente pretendía usar.
+    Responde con: NO:Sugerencia de Comando: [Comando/Corrección sugerida]`;
+
+
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: "Responde estrictamente con 'SI:VALIDA' o 'NO:Sugerencia de Comando: [COMANDO SUGERIDO/CORRECCIÓN]'. No uses comillas ni explicaciones adicionales." }] },
+    };
+    
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        
+        const responseText = text.trim().toUpperCase();
+        if (responseText.startsWith('SI:VALIDA')) {
+            isSyntaxValid = true;
+            validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-emerald-800 bg-emerald-200 p-3 rounded-lg">¡Validación exitosa! La sintaxis es un comando SQL válido. Puedes guardar.</p>`;
+        } else if (responseText.startsWith('NO:SUGERENCIA DE COMANDO:')) {
+            const suggestion = responseText.replace('NO:SUGERENCIA DE COMANDO:', '').trim();
+            const userMessage = `Error de Sintaxis: Lo que ingresaste NO es un comando SQL válido.
+            Sugerencia de la IA: **${suggestion}**.\nPor favor, ajusta la sintaxis y vuelve a validar.`;
+            validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">${userMessage}</p>`;
+        } else {
+            validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error: La sintaxis no es válida.\nInténtalo de nuevo.</p>`;
+        }
+    } catch (error) {
+        console.error("Error al validar con IA:", error);
+        validationMessageDiv.innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error de conexión: No se pudo validar con la IA.</p>`;
+    } finally {
+        validateButton.textContent = 'Pre-validar Sintaxis con IA ✨';
+        validateButton.disabled = false;
+    }
 };
 
 // ************************************************************
@@ -551,7 +683,7 @@ const runSQLQuery = async (description, isContextual) => {
     
     resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-blue-200 text-blue-800">Generando consulta SQL...</p>`;
     
-    const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q"; 
+    const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q"; // <-- CLAVE AÚN EXPUESTA
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
     let systemInstructionText = "Genera exclusivamente código SQL para bases de datos relacionales, sin ningún texto, explicación o comentarios. Si la solicitud no es de SQL, responde con 'NO:SQL'.";
@@ -640,7 +772,67 @@ const addOrUpdateFunction = async (event) => {
     const button = document.getElementById('addFunctionButton');
     const originalButtonText = editingId ? 'Actualizar Comando' : 'Guardar Comando';
     
-    // ... (El resto de la lógica de guardado/actualización)
+    if (!loggedInUser) {
+        showMessage('Debes iniciar sesión para realizar esta acción.', 'error');
+        return;
+    }
+
+    if (!name || !description || !syntax) {
+        showMessage('Todos los campos son obligatorios.', 'error');
+        return;
+    }
+    
+    if (!isSyntaxValid && !editingId) {
+        document.getElementById('validationMessage').innerHTML = `<p class="mt-2 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">¡Atención!\nLa sintaxis no ha sido pre-validada o la validación falló.
+Usa el botón "Pre-validar" antes de guardar.</p>`;
+        return;
+    }
+
+    button.textContent = 'Guardando...';
+    button.disabled = true;
+    try {
+        if (editingId) {
+            await updateDoc(doc(db, FUNCTIONS_PATH, editingId), {
+                name,
+                description,
+                syntax,
+            });
+            // CREACIÓN DE LOG
+            await addDoc(collection(db, LOGS_PATH), {
+                action: "edited",
+                user: loggedInUser.username,
+                functionName: name,
+                timestamp: new Date()
+            });
+            showMessage(`Comando actualizado con éxito.`, 'success');
+            editingId = null;
+            document.getElementById('addFunctionButton').textContent = 'Guardar Comando';
+        } else {
+            await addDoc(collection(db, FUNCTIONS_PATH), {
+                name,
+                description,
+                syntax,
+                createdAt: new Date()
+            });
+            // CREACIÓN DE LOG
+            await addDoc(collection(db, LOGS_PATH), {
+                action: "added",
+                user: loggedInUser.username,
+                functionName: name,
+                timestamp: new Date()
+            });
+            showMessage(`Comando agregado con éxito.`, 'success');
+        }
+        document.getElementById('addFunctionForm').reset();
+        document.getElementById('validationMessage').innerHTML = ''; 
+        isSyntaxValid = false; 
+    } catch (e) {
+        console.error("Error al agregar/actualizar documento: ", e);
+        showMessage("Error al guardar el comando. Verifica la consola de Firebase.", 'error');
+    } finally {
+        button.textContent = originalButtonText;
+        button.disabled = false;
+    }
 };
 
 const editFunction = (func) => {
@@ -691,10 +883,73 @@ const createAdmin = async (event) => {
     const newAdminUsername = document.getElementById('newAdminUsername').value.trim();
     const secretKey = document.getElementById('secretKey').value;
     const adminMessage = document.getElementById('adminMessage');
+    adminMessage.textContent = '';
+    adminMessage.className = 'mt-4 text-center text-sm';
     
-    // ... (El resto de la lógica de creación de administrador)
-};
+    const isPromotingExistingUser = secretKey === SUPER_ADMIN_KEY;
+    if (!newAdminEmail || !newAdminPassword || !newAdminUsername) {
+        adminMessage.textContent = 'Todos los campos son obligatorios.';
+        adminMessage.classList.add('text-rose-500');
+        return;
+    }
+    
+    let uid = null;
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, newAdminEmail, newAdminPassword);
+        uid = userCredential.user.uid;
+    } catch (e) {
+        if (e.code === 'auth/email-already-in-use') {
+            if (isPromotingExistingUser) {
+                try {
+                    const userCredential = await signInWithEmailAndPassword(auth, newAdminEmail, newAdminPassword);
+                    uid = userCredential.user.uid;
+                    await signOut(auth);
+                    adminMessage.textContent = 'Advertencia: El email ya existía.\nSe asignarán permisos de administrador.';
+                    adminMessage.classList.add('text-yellow-500');
+                } catch (signInError) {
+                    let displayError = 'Error: El email ya está registrado, pero la contraseña no coincide.\nNo se puede obtener el UID para asignar permisos.';
+                    adminMessage.textContent = displayError;
+                    adminMessage.classList.add('text-rose-500');
+                    return;
+                }
+            } else {
+                adminMessage.textContent = 'Error: El email ya está registrado.\nPara promocionar a un usuario existente, ingrese la clave secreta.';
+                adminMessage.classList.add('text-rose-500');
+                return;
+            }
+        } else if (e.code === 'auth/weak-password') {
+            adminMessage.textContent = 'Error: La contraseña debe tener al menos 6 caracteres.';
+            adminMessage.classList.add('text-rose-500');
+            return;
+        } else {
+            console.error("Error al crear usuario Auth:", e);
+            adminMessage.textContent = `Error (${e.code || 'unknown-error'}): No se pudo crear la cuenta de usuario.`;
+            adminMessage.classList.add('text-rose-500');
+            return;
+        }
+    }
+    
+    if (!uid) { return; } 
 
+    try {
+        await setDoc(doc(db, ADMINS_PATH, uid), {
+            uid: uid,
+            username: newAdminUsername,
+            email: newAdminEmail,
+            isAdmin: true, 
+            lastLogin: null
+        }, { merge: true });
+        if (!adminMessage.classList.contains('text-yellow-500')) {
+            adminMessage.textContent = `Administrador ${newAdminUsername} creado con éxito.\nAhora puede iniciar sesión con su email y contraseña.`;
+            adminMessage.classList.add('text-emerald-500');
+        }
+        document.getElementById('createAdminForm').reset();
+    } catch (e) {
+        console.error("Error al registrar administrador en Firestore:", e);
+        adminMessage.textContent = 'Error: Se creó la cuenta de Auth, pero falló el registro de permisos en Firestore.';
+        adminMessage.classList.add('text-rose-500');
+    }
+};
 
 // ************************************************************
 // ********* FUNCIÓN PARA CORREGIR SINTAXIS (FIX) ************
@@ -704,13 +959,56 @@ const fixSyntaxWithAI = async () => {
     const correctionKey = document.getElementById('correctionKey').value.trim();
     const resultDiv = document.getElementById('correctionResult');
     const button = document.getElementById('fixButton');
-    
-    // ... (Validaciones y llamada a IA aquí, similar a runSQLQuery)
-    
-    // NOTA: Implementación de la IA omitida por brevedad. Asumo que es correcta.
-    resultDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-emerald-200 text-emerald-800">Corrección simulada exitosa.</p>`;
-    button.textContent = 'Corregir Sintaxis ✨';
-    button.disabled = false;
+
+    if (!syntax) {
+        resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Por favor, ingresa el código SQL a corregir.</p>`;
+        return;
+    }
+
+    if (correctionKey !== SUPER_ADMIN_KEY) {
+        resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Clave de Promoción incorrecta.\nDebes ser administrador para usar esta función.</p>`;
+        return;
+    }
+
+    button.textContent = 'Corrigiendo...';
+    button.disabled = true;
+    resultDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-blue-200 text-blue-800">Analizando y corrigiendo sintaxis con IA...</p>`;
+
+    const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+    const prompt = `Eres un experto en optimización y corrección de código SQL.
+Corrige cualquier error de sintaxis en el siguiente código y, si es posible, ofréceme una versión optimizada.
+Devuelve SÓLO el código SQL final corregido y optimizado. No uses comentarios ni ninguna explicación. Código SQL: ${syntax}`;
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: "Corrige y optimiza el código SQL, devolviendo exclusivamente la consulta SQL resultante." }] },
+    };
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        const text = result?.candidates?.[0]?.content?.parts?.[0]?.text ||
+            'No se pudo generar una corrección.';
+
+        const correctedCode = text.replace(/```sql|```/g, '').trim();
+        resultDiv.innerHTML = `
+            <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Código Corregido/Optimizado:</h3>
+            <div class="bg-emerald-100 p-4 rounded-lg border border-emerald-400 overflow-x-auto">
+                <pre class="whitespace-pre-wrap font-mono text-emerald-800"><code>${correctedCode}</code></pre>
+            </div>
+        `;
+    } catch (error) {
+        console.error("Error al corregir con IA:", error);
+        resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error al conectar con la IA para la corrección.</p>`;
+    } finally {
+        button.textContent = 'Corregir Sintaxis ✨';
+        button.disabled = false;
+    }
 };
 // ************************************************************
 
@@ -722,12 +1020,51 @@ const generateGeneralQuery = async () => {
     const button = document.getElementById('generalQueryButton');
     const resultsDiv = document.getElementById('generalQueryResults');
     
-    // ... (Lógica de la consulta general aquí, similar a runSQLQuery)
+    if (!description) {
+        resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Por favor, ingresa tu consulta general.</p>`;
+        return;
+    }
+
+    button.textContent = 'Generando Respuesta...';
+    button.disabled = true;
+    resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-blue-200 text-blue-800">Buscando respuesta conceptual con IA...</p>`;
+
+    const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q"; // <-- CLAVE AÚN EXPUESTA
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+    const prompt = `Eres un asistente experto en programación y conceptos de software. Responde a la siguiente consulta de manera concisa y educativa.
+    Consulta: "${description}".`;
+
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: "Responde de manera profesional sobre conceptos de programación, SQL, bases de datos o tecnología en general. Usa Markdown para el formato." }] },
+    };
     
-    // NOTA: Implementación de la IA omitida por brevedad. Asumo que es correcta.
-    resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-emerald-200 text-emerald-800">Respuesta general simulada exitosa.</p>`;
-    button.textContent = 'Obtener Respuesta Conceptual 💡';
-    button.disabled = false;
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || 'No se pudo generar una respuesta. Intenta de nuevo.';
+        
+        // Formatear la respuesta de la IA (Usando marked.parse)
+        resultsDiv.innerHTML = `
+            <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Respuesta Conceptual:</h3>
+            <div class="bg-gray-800 p-4 rounded-lg border border-sky-400 overflow-x-auto prose prose-invert text-gray-100">
+                ${marked.parse(text)}
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error("Error al generar consulta general:", error);
+        resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Error al conectar con la IA para la consulta general.</p>`;
+    } finally {
+        button.textContent = 'Obtener Respuesta Conceptual 💡';
+        button.disabled = false;
+    }
 };
 // ************************************************************
 
