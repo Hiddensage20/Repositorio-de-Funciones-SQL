@@ -801,24 +801,28 @@ const runSQLQuery = async (description, isContextual) => {
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
     let systemInstructionText, prompt;
-    let isCodeResponseExpected = true; // Controla si esperamos código o texto
+    let isCodeResponseExpected = true; 
+    const lowerDescription = description.toLowerCase();
 
     if (isContextual) {
-        // Modo Contextual
-        const lowerDescription = description.toLowerCase();
+        // --- LÓGICA DE DETECCIÓN DE PREGUNTA CONCEPTUAL EN MODO CONTEXTUAL ---
         
-        // 1. Detección de pregunta conceptual sobre la estructura
-        if (lowerDescription.includes('tablas existentes') || lowerDescription.includes('qué tablas hay') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura de')) {
-            isCodeResponseExpected = false; // Esperamos una respuesta en texto
-            prompt = `Eres un asistente experto en bases de datos que analiza el esquema DDL a continuación para responder preguntas conceptuales sobre su estructura.
-            Responde la siguiente consulta basándote ÚNICAMENTE en el Esquema provisto. No generes SQL.
+        // Detección de pregunta conceptual sobre la estructura (tablas, columnas, etc.)
+        if (lowerDescription.includes('tablas') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura') || lowerDescription.includes('esquema')) {
+            isCodeResponseExpected = false; // Esperamos una respuesta en TEXTO
+
+            prompt = `Eres un asistente de base de datos experto. Analiza el esquema DDL provisto a continuación y responde a la pregunta del usuario.
+            Responde ÚNICAMENTE con texto descriptivo y formatéalo con Markdown. Nunca uses código SQL en esta respuesta.
             --- DB SCHEMA ---
             ${dbSchema}
             --- END SCHEMA ---
             Consulta: "${description}"`;
-            systemInstructionText = "Responde como un experto consultor de bases de datos utilizando el esquema provisto. Utiliza listas o formatos claros en tu respuesta. Nunca generes código SQL.";
+            
+            // Exigimos a la IA que use un prefijo si es conceptual para distinguirlo del "NO:SQL"
+            systemInstructionText = "Responde como un consultor de bases de datos. Si la respuesta es conceptual, INICIA con 'RESPUESTA_TEXTO:'. De lo contrario, genera código SQL o responde 'NO:SQL'.";
+
         } else {
-            // 2. Pregunta de generación de código (Default)
+            // Pregunta de generación de código (Default para modo contextual)
             isCodeResponseExpected = true;
             prompt = `Eres un experto en SQL que actúa como asistente de un programador. Tienes acceso a esta estructura de base de datos (DB): 
             --- DB SCHEMA ---
@@ -828,7 +832,7 @@ const runSQLQuery = async (description, isContextual) => {
             systemInstructionText = "Genera exclusivamente código SQL, sin explicaciones ni comentarios, que resuelva la solicitud usando el esquema provisto. Si la respuesta no es SQL, responde con 'NO:SQL'.";
         }
     } else {
-        // Modo Normal
+        // Modo Normal (siempre espera código SQL)
         isCodeResponseExpected = true;
         prompt = `Eres un experto en SQL. Genera una consulta SQL (solo el código, no expliques nada) basada en la siguiente descripción. 
         Si la descripción NO está relacionada con SQL, bases de datos, o programación, responde estrictamente con: NO:SQL. 
@@ -853,7 +857,7 @@ const runSQLQuery = async (description, isContextual) => {
         }
 
         const result = await response.json();
-        const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        let text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         
         const responseText = text.trim();
 
@@ -864,23 +868,29 @@ const runSQLQuery = async (description, isContextual) => {
              return;
         }
         
-        if (isCodeResponseExpected) {
-            // Si esperamos código SQL, lo mostramos en el formato pre-tag
-            const sqlCode = responseText.replace(/```sql|```/g, '').trim();
+        if (isCodeResponseExpected || responseText.toUpperCase().startsWith('RESPUESTA_TEXTO:')) {
+            let content;
+            let title;
+            
+            if (responseText.toUpperCase().startsWith('RESPUESTA_TEXTO:')) {
+                // Es una respuesta textual del asistente contextual
+                content = marked.parse(responseText.substring('RESPUESTA_TEXTO:'.length).trim());
+                title = 'Respuesta de Asistencia:';
+            } else {
+                // Es código SQL
+                content = `<pre class="whitespace-pre-wrap font-mono text-gray-100"><code>${responseText.replace(/```sql|```/g, '').trim()}</code></pre>`;
+                title = 'Consulta Generada:';
+            }
+            
             resultsDiv.innerHTML = `
-                <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Consulta Generada:</h3>
-                <div class="bg-gray-800 p-4 rounded-lg border border-blue-400 overflow-x-auto">
-                    <pre class="whitespace-pre-wrap font-mono text-gray-100"><code>${sqlCode}</code></pre>
+                <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">${title}</h3>
+                <div class="bg-gray-800 p-4 rounded-lg border border-blue-400 overflow-x-auto prose prose-invert text-gray-100">
+                    ${content}
                 </div>
             `;
         } else {
-            // Si es respuesta conceptual, usamos el formato Markdown
-             resultsDiv.innerHTML = `
-                <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Respuesta de Asistencia:</h3>
-                <div class="bg-gray-800 p-4 rounded-lg border border-blue-400 overflow-x-auto prose prose-invert text-gray-100">
-                    ${marked.parse(responseText)}
-                </div>
-            `;
+             // Esto captura cualquier respuesta que no sea ni NO:SQL ni RESPUESTA_TEXTO: y la trata como texto
+             resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Error inesperado de la IA. Por favor, intenta reformular la pregunta.</p>`;
         }
         
         showMessage('Consulta procesada con éxito.', 'success');
