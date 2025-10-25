@@ -808,25 +808,32 @@ const runSQLQuery = async (description, isContextual) => {
         // --- LÓGICA DE DETECCIÓN DE PREGUNTA CONCEPTUAL EN MODO CONTEXTUAL (REPARADA) ---
         
         // Criterio de detección de pregunta conceptual O DE RESUMEN de datos
-        // NOTA: Se ha ampliado el criterio para incluir preguntas de "quiénes son" y "si han pedido".
-        const requiresTextualExplanation = lowerDescription.includes('tablas') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura') || lowerDescription.includes('esquema') || lowerDescription.includes('quiénes son') || lowerDescription.includes('dime quiénes') || lowerDescription.includes('muéstrame quiénes') || lowerDescription.includes('si tienen') || lowerDescription.includes('qué hay');
+        // Si el usuario pregunta por "quiénes", "qué tablas", "si tienen", etc., forzamos la respuesta de texto.
+        const requiresTextualExplanation = lowerDescription.includes('tablas') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura') || lowerDescription.includes('esquema') || lowerDescription.includes('quiénes son') || lowerDescription.includes('dime quiénes') || lowerDescription.includes('muéstrame quiénes') || lowerDescription.includes('si tienen') || lowerDescription.includes('qué hay') || lowerDescription.includes('dime quién') || lowerDescription.includes('sin darme el código') || lowerDescription.includes('explícame') || lowerDescription.includes('dime la información');
 
-        if (requiresTextualExplanation) {
-            isCodeResponseExpected = false; // Esperamos una respuesta en TEXTO
+        // Si el usuario pide explícitamente código SQL, lo sobreescribimos
+        const wantsExplicitSQL = lowerDescription.includes('sintaxis sql') || lowerDescription.includes('dame la consulta') || lowerDescription.includes('código sql');
+
+        if (wantsExplicitSQL && !requiresTextualExplanation) {
+            // El usuario quiere el código
+            isCodeResponseExpected = true;
+        } else if (requiresTextualExplanation && !wantsExplicitSQL) {
+            // El usuario quiere la explicación/diálogo
+            isCodeResponseExpected = false;
 
             prompt = `Eres un asistente de base de datos experto. Analiza el esquema DDL provisto a continuación y responde a la pregunta del usuario.
             Si la pregunta es sobre la estructura o requiere resumir información (ej: 'quienes son los alumnos que tienen préstamo'), genera una respuesta descriptiva y legible.
-            Responde ÚNICAMENTE con texto descriptivo y formatéalo con Markdown. Nunca uses código SQL en esta respuesta.
+            Responde ÚNICAMENTE con texto descriptivo y formatéalo con Markdown. Nunca uses código SQL.
             --- DB SCHEMA ---
             ${dbSchema}
             --- END SCHEMA ---
             Consulta: "${description}"`;
             
             // Usaremos un prefijo claro para indicar que es una respuesta conceptual
-            systemInstructionText = "Responde como un consultor de bases de datos utilizando el esquema provisto. Tu respuesta DEBE comenzar con 'RESPUESTA_TEXTO:' y ser texto Markdown.";
+            systemInstructionText = "Responde como un consultor de bases de datos utilizando el esquema provisto. Tu respuesta DEBE comenzar con 'RESPUESTA_TEXTO:' y ser texto Markdown. Si la pregunta está fuera de contexto, responde 'NO:SQL'.";
 
         } else {
-            // Pregunta de generación de código (Default para modo contextual)
+            // Caso por defecto (o si se pide código SQL explícitamente)
             isCodeResponseExpected = true;
             prompt = `Eres un experto en SQL que actúa como asistente de un programador. Tienes acceso a esta estructura de base de datos (DB): 
             --- DB SCHEMA ---
@@ -1150,6 +1157,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('funcName').addEventListener('input', resetValidation);
     document.getElementById('funcDescription').addEventListener('input', resetValidation);
     document.getElementById('funcSyntax').addEventListener('input', resetValidation);
+
+    // Manejo de la tecla ENTER específica para TEXTAREA (Consulta Específica)
+    document.getElementById('specificQueryInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { // Detecta ENTER sin SHIFT
+            e.preventDefault(); // Evita el salto de línea
+            document.getElementById('specificQueryButton').click(); // Simula el clic en el botón de envío
+        }
+    });
+
 
     // Inicializar colores dinámicos después de cargar listeners
     updateDynamicElements();
