@@ -809,31 +809,38 @@ const runSQLQuery = async (description, isContextual) => {
         
         // Criterio de detección de pregunta conceptual O DE RESUMEN de datos
         // Si el usuario pregunta por "quiénes", "qué tablas", "si tienen", etc., forzamos la respuesta de texto.
-        const requiresTextualExplanation = lowerDescription.includes('tablas') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura') || lowerDescription.includes('esquema') || lowerDescription.includes('quiénes son') || lowerDescription.includes('dime quiénes') || lowerDescription.includes('muéstrame quiénes') || lowerDescription.includes('si tienen') || lowerDescription.includes('qué hay') || lowerDescription.includes('dime quién') || lowerDescription.includes('sin darme el código') || lowerDescription.includes('explícame') || lowerDescription.includes('dime la información');
+        const requiresTextualExplanation = lowerDescription.includes('tablas') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura') || lowerDescription.includes('esquema') || lowerDescription.includes('quiénes son') || lowerDescription.includes('dime quiénes') || lowerDescription.includes('muéstrame quiénes') || lowerDescription.includes('si tienen') || lowerDescription.includes('qué hay') || lowerDescription.includes('dime quién') || lowerDescription.includes('explícame') || lowerDescription.includes('dime la información');
 
         // Si el usuario pide explícitamente código SQL, lo sobreescribimos
         const wantsExplicitSQL = lowerDescription.includes('sintaxis sql') || lowerDescription.includes('dame la consulta') || lowerDescription.includes('código sql');
 
-        if (wantsExplicitSQL && !requiresTextualExplanation) {
-            // El usuario quiere el código
+        if (wantsExplicitSQL) {
+            // El usuario quiere el código SQL
             isCodeResponseExpected = true;
-        } else if (requiresTextualExplanation && !wantsExplicitSQL) {
+            prompt = `Eres un experto en SQL que actúa como asistente de un programador. Tienes acceso a esta estructura de base de datos (DB): 
+            --- DB SCHEMA ---
+            ${dbSchema}
+            --- END SCHEMA ---
+            Basándote SOLAMENTE en el esquema proporcionado, genera la consulta SQL que responde a la siguiente solicitud. Si no es posible con el esquema dado, dilo. No incluyas comentarios ni explicaciones. Solicitud: "${description}".`;
+            systemInstructionText = "Genera exclusivamente código SQL, sin explicaciones ni comentarios, que resuelva la solicitud usando el esquema provisto. Si la respuesta no es SQL, responde con 'NO:SQL'.";
+
+        } else if (requiresTextualExplanation) {
             // El usuario quiere la explicación/diálogo
             isCodeResponseExpected = false;
 
             prompt = `Eres un asistente de base de datos experto. Analiza el esquema DDL provisto a continuación y responde a la pregunta del usuario.
             Si la pregunta es sobre la estructura o requiere resumir información (ej: 'quienes son los alumnos que tienen préstamo'), genera una respuesta descriptiva y legible.
-            Responde ÚNICAMENTE con texto descriptivo y formatéalo con Markdown. Nunca uses código SQL.
+            Responde ÚNICAMENTE con texto descriptivo y formatéalo con Markdown. Nunca uses código SQL en esta respuesta.
             --- DB SCHEMA ---
             ${dbSchema}
             --- END SCHEMA ---
             Consulta: "${description}"`;
             
             // Usaremos un prefijo claro para indicar que es una respuesta conceptual
-            systemInstructionText = "Responde como un consultor de bases de datos utilizando el esquema provisto. Tu respuesta DEBE comenzar con 'RESPUESTA_TEXTO:' y ser texto Markdown. Si la pregunta está fuera de contexto, responde 'NO:SQL'.";
+            systemInstructionText = "Responde como un consultor de bases de datos utilizando el esquema provisto. Tu respuesta DEBE comenzar con 'RESPUESTA_TEXTO:' y ser texto Markdown.";
 
         } else {
-            // Caso por defecto (o si se pide código SQL explícitamente)
+            // Caso por defecto: Asumimos que es una solicitud de código si no pide explicación.
             isCodeResponseExpected = true;
             prompt = `Eres un experto en SQL que actúa como asistente de un programador. Tienes acceso a esta estructura de base de datos (DB): 
             --- DB SCHEMA ---
@@ -1158,13 +1165,36 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('funcDescription').addEventListener('input', resetValidation);
     document.getElementById('funcSyntax').addEventListener('input', resetValidation);
 
-    // Manejo de la tecla ENTER específica para TEXTAREA (Consulta Específica)
+    // ************ MANEJO DE TECLA ENTER (TEXTAREA) ************
+    // Consulta Específica
     document.getElementById('specificQueryInput').addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) { // Detecta ENTER sin SHIFT
             e.preventDefault(); // Evita el salto de línea
-            document.getElementById('specificQueryButton').click(); // Simula el clic en el botón de envío
+            document.getElementById('queryFormSpecific').dispatchEvent(new Event('submit'));
         }
     });
+    // Generar Código SQL
+    document.getElementById('descriptionSearch').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { 
+            e.preventDefault();
+            document.getElementById('queryFormDefault').dispatchEvent(new Event('submit'));
+        }
+    });
+    // Consulta General
+    document.getElementById('generalQueryInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { 
+            e.preventDefault();
+            document.getElementById('queryFormGeneral').dispatchEvent(new Event('submit'));
+        }
+    });
+    // Corregir Sintaxis
+    document.getElementById('errorInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { 
+            e.preventDefault();
+            document.getElementById('queryFormFix').dispatchEvent(new Event('submit'));
+        }
+    });
+    // **********************************************************
 
 
     // Inicializar colores dinámicos después de cargar listeners
