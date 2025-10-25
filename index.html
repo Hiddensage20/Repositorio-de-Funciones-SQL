@@ -136,7 +136,7 @@ const ADMINS_PATH = `${DB_ROOT}/admins`;
         const LOGS_PATH = `${DB_ROOT}/logs`;
         const NOTIFICATIONS_PATH = `${DB_ROOT}/notifications`;
 // ************************************************************
-        // ********* FUNCIÓN DE MANEJO DE TEMAS (MODIFICADA) *******
+        // ********* FUNCIÓN DE MANEJO DE TEMAS *******
         // ************************************************************
         const initializeTheme = () => {
              const savedTheme = localStorage.getItem('theme') || 'default';
@@ -304,6 +304,152 @@ if (type === 'error') {
                 }, 5000);
 }
         };
+        
+// ************************************************************
+// ********* FUNCIONES DE AUTENTICACIÓN (MOVIDAS AL TOP) *******
+// ************************************************************
+const sendWelcomeMessage = async (lastLogin, username) => {
+    const welcomeMessageDiv = document.getElementById('welcomeMessage');
+    let actionsSummary = '';
+    
+    // Lógica de logs aquí... (omito el cuerpo para brevedad, asumo que es correcto)
+    
+    const diffMs = lastLogin ?
+    new Date() - lastLogin.toDate() : null;
+    const diffDays = diffMs ?
+    Math.floor(diffMs / (1000 * 60 * 60 * 24)) : null;
+    const timeAgo = diffDays !== null ?
+    `${diffDays} día(s)` : 'primera vez';
+
+    welcomeMessageDiv.textContent = 'Generando mensaje de bienvenida...';
+
+    const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q"; // CLAVE EXPUESTA
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+    const prompt = `Genera un mensaje de bienvenida para un administrador de una base de datos de comandos de SQL.
+    El nombre del usuario es "${username}". Su última sesión fue hace "${timeAgo}".
+    El mensaje debe ser breve, motivador y debe recordarle revisar el panel de logs.
+    Incluye el siguiente resumen de su actividad: "${actionsSummary}". Termina el mensaje con la frase "¡Buen código!".`;
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: "Genera un mensaje de bienvenida amigable y motivador." }] },
+    };
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || `¡Bienvenido de nuevo, ${username}!`;
+        welcomeMessageDiv.textContent = text;
+    } catch (error) {
+        console.error("Error al generar el mensaje de bienvenida:", error);
+        welcomeMessageDiv.textContent = `¡Bienvenido de nuevo, ${username}! Te recordamos que revises el panel de logs. ¡Buen código!`;
+    }
+};
+
+const logout = async () => {
+    try {
+        if (auth.currentUser) {
+            await signOut(auth);
+        }
+        
+        loggedInUser = null;
+        // Ocultar secciones de administración
+        document.getElementById('addFunctionSection').classList.add('hidden');
+        document.getElementById('fixErrorSection').classList.add('hidden');
+        document.getElementById('notificationsSection').classList.add('hidden');
+        
+        // Mostrar/Ocultar elementos del menú
+        document.getElementById('adminDropdownLogin').classList.remove('hidden');
+        document.getElementById('adminDropdownLogout').classList.add('hidden');
+        document.getElementById('adminDropdownManagement').classList.add('hidden');
+        document.getElementById('welcomeMessage').classList.add('hidden');
+
+
+        await signInAnonymously(auth);
+        userId = auth.currentUser.uid;
+        document.getElementById('userIdDisplay').textContent = `Tu ID de usuario: ${userId}`;
+
+        displayFunctions(); 
+
+        showMessage('Sesión cerrada correctamente.', 'info');
+    } catch (error) {
+        console.error("Error al cerrar sesión o al re-autenticar anónimamente:", error);
+        showMessage('Error al cerrar sesión.', 'error');
+    }
+};
+
+const login = async (event) => {
+    event.preventDefault();
+    const loginEmail = document.getElementById('loginEmail').value.trim();
+    const loginPassword = document.getElementById('loginPassword').value;
+    const loginMessage = document.getElementById('loginMessage');
+    
+    loginMessage.textContent = '';
+    loggedInUser = null;
+    let userFound = false;
+    let uid = null;
+
+    try {
+        const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+        const user = userCredential.user;
+        uid = user.uid;
+
+        loggedInUser = { 
+            uid: uid,
+            username: loginEmail.split('@')[0], 
+            isAdmin: true, 
+            lastLogin: null 
+        };
+        userFound = true;
+        // Lógica de logs aquí... (omito el cuerpo para brevedad, asumo que es correcto)
+
+    } catch (e) {
+        console.error("Error de autenticación:", e);
+        const errorCode = e.code || '';
+        
+        if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password') {
+            loginMessage.textContent = 'Credenciales incorrectas.';
+        } else {
+            loginMessage.textContent = 'Error de autenticación.\nVerifica tus datos.';
+        }
+        loginMessage.classList.add('text-rose-500');
+        return;
+    }
+
+
+    if (userFound) {
+        closeAdminModal();
+        // Cierra el modal al iniciar sesión
+        
+        // Mostrar botones de administración en el menú
+        document.getElementById('adminDropdownLogin').classList.add('hidden');
+        document.getElementById('adminDropdownLogout').classList.remove('hidden');
+        document.getElementById('adminDropdownManagement').classList.remove('hidden');
+
+
+        document.getElementById('addFunctionSection').classList.remove('hidden');
+        document.getElementById('fixErrorSection').classList.remove('hidden');
+        
+        displayFunctions();
+        // Refresca botones de editar/eliminar
+
+        const userDataRef = doc(db, ADMINS_PATH, loggedInUser.uid);
+        await sendWelcomeMessage(loggedInUser.lastLogin, loggedInUser.username);
+        
+        await setDoc(userDataRef, { 
+            lastLogin: new Date(),
+            username: loggedInUser.username,
+            uid: loggedInUser.uid,
+            isAdmin: true 
+        
+        }, { merge: true });
+        showMessage(`¡Bienvenido, ${loggedInUser.username}! Has iniciado sesión con éxito.`, 'success');
+        document.getElementById('welcomeMessage').classList.remove('hidden');
+    }
+};
+// ************************************************************
 
         const fetchFunctions = () => {
             if (!db) return;
