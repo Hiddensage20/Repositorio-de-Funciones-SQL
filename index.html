@@ -805,24 +805,26 @@ const runSQLQuery = async (description, isContextual) => {
     const lowerDescription = description.toLowerCase();
 
     if (isContextual) {
-        // --- LÓGICA DE DETECCIÓN DE PREGUNTA CONCEPTUAL EN MODO CONTEXTUAL ---
+        // --- LÓGICA DE DETECCIÓN DE PREGUNTA CONCEPTUAL EN MODO CONTEXTUAL (REPARADA) ---
         
-        // Detección de pregunta conceptual sobre la estructura (tablas, columnas, etc.)
-        if (lowerDescription.includes('tablas') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura') || lowerDescription.includes('esquema') || lowerDescription.includes('qué hay')) {
+        // Detección de pregunta conceptual O DE RESUMEN de datos
+        if (lowerDescription.includes('tablas') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura') || lowerDescription.includes('esquema') || lowerDescription.includes('quiénes son') || lowerDescription.includes('dime quiénes') || lowerDescription.includes('muéstrame quiénes') || lowerDescription.includes('qué hay')) {
             isCodeResponseExpected = false; // Esperamos una respuesta en TEXTO
 
             prompt = `Eres un asistente de base de datos experto. Analiza el esquema DDL provisto a continuación y responde a la pregunta del usuario.
+            Si la pregunta es sobre la estructura o el contenido general (ej: 'dime quiénes tienen préstamos'), proporciona una respuesta descriptiva basada en el esquema.
             Responde ÚNICAMENTE con texto descriptivo y formatéalo con Markdown. Nunca uses código SQL.
             --- DB SCHEMA ---
             ${dbSchema}
             --- END SCHEMA ---
             Consulta: "${description}"`;
             
-            // Exigimos a la IA que use un prefijo si es conceptual para distinguirlo del "NO:SQL"
-            systemInstructionText = "Responde como un consultor de bases de datos utilizando el esquema provisto. Si la respuesta es conceptual, INICIA con 'RESPUESTA_TEXTO:'. De lo contrario, genera código SQL o responde 'NO:SQL'.";
+            // Usaremos un prefijo claro para indicar que es una respuesta conceptual,
+            // ya que no podemos confiar en la instrucción de "nunca uses código SQL".
+            systemInstructionText = "Responde como un consultor de bases de datos utilizando el esquema provisto. Tu respuesta DEBE comenzar con 'RESPUESTA_TEXTO:' y ser texto Markdown, o ser 'NO:SQL'.";
 
         } else {
-            // Pregunta de generación de código (Default para modo contextual)
+            // Pregunta de generación de código
             isCodeResponseExpected = true;
             prompt = `Eres un experto en SQL que actúa como asistente de un programador. Tienes acceso a esta estructura de base de datos (DB): 
             --- DB SCHEMA ---
@@ -935,8 +937,52 @@ const fixSyntaxWithAI = async (e) => {
         resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Por favor, ingresa el código SQL a corregir.</p>`;
         return;
     }
-    
-    // NOTA: Resto del cuerpo de la función omitido para brevedad.
+
+    if (correctionKey !== SUPER_ADMIN_KEY) {
+        resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Clave de Promoción incorrecta.\nDebes ser administrador para usar esta función.</p>`;
+        return;
+    }
+
+    button.textContent = 'Corrigiendo...';
+    button.disabled = true;
+    resultDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-blue-200 text-blue-800">Analizando y corrigiendo sintaxis con IA...</p>`;
+
+    const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+    const prompt = `Eres un experto en optimización y corrección de código SQL.
+Corrige cualquier error de sintaxis en el siguiente código y, si es posible, ofréceme una versión optimizada.
+Devuelve SÓLO el código SQL final corregido y optimizado. No uses comentarios ni ninguna explicación. Código SQL: ${syntax}`;
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: "Corrige y optimiza el código SQL, devolviendo exclusivamente la consulta SQL resultante." }] },
+    };
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        const text = result?.candidates?.[0]?.content?.parts?.[0]?.text ||
+            'No se pudo generar una corrección.';
+
+        const correctedCode = text.replace(/```sql|```/g, '').trim();
+        resultDiv.innerHTML = `
+            <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Código Corregido/Optimizado:</h3>
+            <div class="bg-emerald-100 p-4 rounded-lg border border-emerald-400 overflow-x-auto">
+                <pre class="whitespace-pre-wrap font-mono text-emerald-800"><code>${correctedCode}</code></pre>
+            </div>
+        `;
+        showMessage('Sintaxis corregida con éxito.', 'success');
+    } catch (error) {
+        console.error("Error al corregir con IA:", error);
+        resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error al conectar con la IA para la corrección.</p>`;
+    } finally {
+        button.textContent = 'Corregir Sintaxis ✨';
+        button.disabled = false;
+    }
 };
 // ************************************************************
 
@@ -954,7 +1000,46 @@ const generateGeneralQuery = async (e) => {
         return;
     }
 
-    // NOTA: Resto del cuerpo de la función omitido para brevedad.
+    button.textContent = 'Generando Respuesta...';
+    button.disabled = true;
+    resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-blue-200 text-blue-800">Buscando respuesta conceptual con IA...</p>`;
+
+    const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q"; // <-- CLAVE AÚN EXPUESTA
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+    const prompt = `Eres un asistente experto en programación y conceptos de software. Responde a la siguiente consulta de manera concisa y educativa.
+    Consulta: "${description}".`;
+
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: "Responde de manera profesional sobre conceptos de programación, SQL, bases de datos o tecnología en general. Usa Markdown para el formato." }] },
+    };
+    
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || 'No se pudo generar una respuesta. Intenta de nuevo.';
+        
+        // Formatear la respuesta de la IA (Usando marked.parse)
+        resultsDiv.innerHTML = `
+            <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Respuesta Conceptual:</h3>
+            <div class="bg-gray-800 p-4 rounded-lg border border-sky-400 overflow-x-auto prose prose-invert text-gray-100">
+                ${marked.parse(text)}
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error("Error al generar consulta general:", error);
+        resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Error al conectar con la IA para la consulta general.</p>`;
+    } finally {
+        button.textContent = 'Obtener Respuesta Conceptual 💡';
+        button.disabled = false;
+    }
 };
 // ************************************************************
 
@@ -1000,7 +1085,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAssistanceSchemaStatus();
 
     // ************************************************************
-    // ********* EVENT LISTENERS CORREGIDOS (SUBMIT/ENTER) *********
+    // ********* EVENT LISTENERS CORREGIDOS *************************
     // ************************************************************
     document.getElementById('showLoginButton').addEventListener('click', showAdminLogin);
 
@@ -1037,9 +1122,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
+    // Asignar listeners a los FORMULARIOS para que la tecla Enter funcione
     document.getElementById('queryFormDefault').addEventListener('submit', generateSQLQuery);
     document.getElementById('queryFormSpecific').addEventListener('submit', generateSpecificQuery);
     document.getElementById('queryFormGeneral').addEventListener('submit', generateGeneralQuery); 
+    document.getElementById('queryFormFix').addEventListener('submit', fixSyntaxWithAI);
     
     document.getElementById('clearSchemaBtn').addEventListener('click', clearDBSchemaWithConfirmation); 
 
@@ -1048,8 +1135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('loginForm').addEventListener('submit', login);
     document.getElementById('addFunctionForm').addEventListener('submit', addOrUpdateFunction);
     document.getElementById('validateSyntaxButton').addEventListener('click', validateFunctionWithAI);
-    document.getElementById('fixButton').addEventListener('click', fixSyntaxWithAI);
-
+    
     document.getElementById('createAdminForm').addEventListener('submit', createAdmin);
     document.getElementById('functionSearchInput').addEventListener('input', searchFunctions);
     document.getElementById('confirmBtn').addEventListener('click', () => handleConfirm(true));
