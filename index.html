@@ -4,13 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Código Grabado</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> 
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Estilo para el menú desplegable */
         .dropdown:hover .dropdown-menu {
             display: block;
         }
-        /* Eliminado: Estilos para el toggle de Dark Mode */
+        /* Añadido para el estilo de respuesta Markdown (prose) */
+        .prose :where(code):not(:where([class~="not-prose"] *)) {
+            padding: 0.2em 0.4em;
+            border-radius: 0.3em;
+            background-color: #374151; /* gray-700 */
+            color: #D1D5DB; /* gray-300 */
+        }
+        /* Estilo para listas y encabezados dentro del prose */
+        .prose ul, .prose ol {
+            padding-left: 1.5em;
+        }
     </style>
     <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -316,75 +327,88 @@ validateButton.disabled = false;
             }
         };
 // ************************************************************
-        // ********* FUNCIÓN PARA GENERAR CONSULTA SQL (CORREGIDA) *****
-        // ************************************************************
-        const generateSQLQuery = async () => {
-            const description = document.getElementById('descriptionSearch').value.trim();
-const button = document.getElementById('descriptionSearchButton');
-            const resultsDiv = document.getElementById('recommendationResults');
-            
-            if (!description) {
-                showMessage('Por favor, describe tu necesidad para generar la consulta.', 'error');
-return;
-            }
+// ********* FUNCIÓN PARA GENERAR CONSULTA SQL (CORREGIDA) *****
+// ************************************************************
+const generateSQLQuery = async () => {
+    const description = document.getElementById('descriptionSearch').value.trim();
+    const button = document.getElementById('descriptionSearchButton');
+    const resultsDiv = document.getElementById('recommendationResults');
+    
+    if (!description) {
+        showMessage('Por favor, describe tu necesidad para generar la consulta.', 'error');
+        return;
+    }
 
-            button.textContent = 'Generando...';
-            button.disabled = true;
-resultsDiv.innerHTML = '';
-            
-resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-blue-200 text-blue-800">Generando consulta SQL...</p>`;
-// Tema Blueberry: Blue info
+    button.textContent = 'Generando...';
+    button.disabled = true;
+    resultsDiv.innerHTML = '';
+    
+    resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-blue-200 text-blue-800">Generando consulta SQL...</p>`;
+    // Tema Blueberry: Blue info
 
 
-            const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
-// Tu API Key
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-const prompt = `Eres un experto en SQL. Genera una consulta SQL (solo el código, no expliques nada) basada en la siguiente descripción.
+    const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
+    // Tu API Key
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+    
+    // --- PROMPT MODIFICADO PARA VALIDACIÓN DE SQL ---
+    const prompt = `Eres un experto en SQL. Genera una consulta SQL (solo el código, no expliques nada) basada en la siguiente descripción.
+Si la descripción NO está relacionada con SQL, bases de datos, o programación, responde estrictamente con: NO:SQL
 No incluyas comentarios o texto adicional. Descripción: "${description}".`;
 
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: "Genera exclusivamente código SQL para bases de datos relacionales, sin ningún texto, explicación o comentarios."
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: "Genera exclusivamente código SQL para bases de datos relacionales, sin ningún texto, explicación o comentarios. Si la solicitud no es de SQL, responde con 'NO:SQL'."
 }] },
-            };
-try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-            
-    });
-                
-                if (!response.ok) {
-                    throw new Error(`Error en la API: ${response.statusText}`);
-}
+    };
+    // ------------------------------------------------
+    
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+    
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Error en la API: ${response.statusText}`);
+        }
 
-                const result = await response.json();
-const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                
-                const sqlCode = text.replace(/```sql|```/g, '').trim();
-// Tema Blueberry Oscuro: Use dark background for code block
-resultsDiv.innerHTML = `
-                    <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Consulta Generada:</h3>
-                    <div class="bg-gray-800 p-4 rounded-lg border border-blue-400 overflow-x-auto">
-                        <pre class="whitespace-pre-wrap font-mono text-gray-100"><code>${sqlCode}</code></pre>
-          
- </div>
-                `;
-showMessage('Consulta SQL generada con éxito.', 'success');
-                
-            } catch (error) {
-                console.error("Error al generar la consulta SQL:", error);
-resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Error al generar la consulta: ${error.message}. Intenta de nuevo.</p>`;
-} finally {
-                button.textContent = 'Generar Consulta SQL ✨';
-button.disabled = false;
-            }
-        };
+        const result = await response.json();
+        const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        
+        // --- MANEJO DE RESPUESTA MODIFICADO ---
+        const responseText = text.trim();
+
+        if (responseText.toUpperCase() === 'NO:SQL') {
+             resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">
+                ⚠️ Te recuerdo que este sitio está diseñado para temas relacionados con **SQL y programación**. Este tipo de consultas no pueden ser resueltas aquí.
+            </p>`;
+             return;
+        }
+
+        const sqlCode = responseText.replace(/```sql|```/g, '').trim();
+        // Tema Blueberry Oscuro: Use dark background for code block
+        resultsDiv.innerHTML = `
+            <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Consulta Generada:</h3>
+            <div class="bg-gray-800 p-4 rounded-lg border border-blue-400 overflow-x-auto">
+                <pre class="whitespace-pre-wrap font-mono text-gray-100"><code>${sqlCode}</code></pre>
+            </div>
+        `;
+        showMessage('Consulta SQL generada con éxito.', 'success');
+        
+    } catch (error) {
+        console.error("Error al generar la consulta SQL:", error);
+        resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Error al generar la consulta: ${error.message}. Intenta de nuevo.</p>`;
+    } finally {
+        button.textContent = 'Generar Consulta SQL ✨';
+        button.disabled = false;
+    }
+};
 // ************************************************************
 // ********* FUNCIÓN PARA AÑADIR MÚLTIPLES COMANDOS CON IA (ELIMINADA) *****
 // ************************************************************
-// const bulkAddFunctionsWithAI = async (event) => { ... } 
 // La función fue eliminada
 // ************************************************************
 
@@ -598,9 +622,7 @@ adminMessage.textContent = 'Error: Se creó la cuenta de Auth, pero falló el re
 // Ocultar secciones de administración
                 document.getElementById('addFunctionSection').classList.add('hidden');
 document.getElementById('fixErrorSection').classList.add('hidden');
-                // document.getElementById('adminManagementSection').classList.add('hidden'); // Eliminada la referencia
                 document.getElementById('notificationsSection').classList.add('hidden');
-                // document.getElementById('bulkAddSection').classList.add('hidden'); // Eliminada la referencia
                 
                 // Mostrar/Ocultar elementos del menú
                 document.getElementById('adminDropdownLogin').classList.remove('hidden');
@@ -682,8 +704,6 @@ document.getElementById('adminDropdownLogout').classList.remove('hidden');
 
                 document.getElementById('addFunctionSection').classList.remove('hidden');
                 document.getElementById('fixErrorSection').classList.remove('hidden');
-                // document.getElementById('adminManagementSection').classList.remove('hidden'); // Eliminada la referencia
-                // document.getElementById('bulkAddSection').classList.remove('hidden'); // Eliminada la referencia
                 
                 displayFunctions();
 // Refresca botones de editar/eliminar
@@ -824,6 +844,63 @@ resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 
 button.disabled = false;
             }
         };
+
+// ************************************************************
+// ********* FUNCIÓN PARA CONSULTA GENERAL DE PROGRAMACIÓN *****
+// ************************************************************
+const generateGeneralQuery = async () => {
+    const description = document.getElementById('generalQueryInput').value.trim();
+    const button = document.getElementById('generalQueryButton');
+    const resultsDiv = document.getElementById('generalQueryResults');
+    
+    if (!description) {
+        resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Por favor, ingresa tu consulta general.</p>`;
+        return;
+    }
+
+    button.textContent = 'Generando Respuesta...';
+    button.disabled = true;
+    resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-blue-200 text-blue-800">Buscando respuesta conceptual con IA...</p>`;
+
+    const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+    const prompt = `Eres un asistente experto en programación y conceptos de software. Responde a la siguiente consulta de manera concisa y educativa.
+    Consulta: "${description}".`;
+
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: "Responde de manera profesional sobre conceptos de programación, SQL, bases de datos o tecnología en general. Usa Markdown para el formato." }] },
+    };
+    
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || 'No se pudo generar una respuesta. Intenta de nuevo.';
+        
+        // Formatear la respuesta de la IA (Usando marked.parse)
+        resultsDiv.innerHTML = `
+            <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Respuesta Conceptual:</h3>
+            <div class="bg-gray-800 p-4 rounded-lg border border-sky-400 overflow-x-auto prose prose-invert text-gray-100">
+                ${marked.parse(text)}
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error("Error al generar consulta general:", error);
+        resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Error al conectar con la IA para la consulta general.</p>`;
+    } finally {
+        button.textContent = 'Obtener Respuesta Conceptual 💡';
+        button.disabled = false;
+    }
+};
+// ************************************************************
+
 const searchFunctions = (event) => {
             const searchTerm = event.target.value.toLowerCase();
 const filteredFunctions = functionsList.filter(func => 
@@ -873,12 +950,14 @@ document.getElementById('adminLoginModal').classList.remove('flex');
 
             document.getElementById('loginForm').addEventListener('submit', login);
             document.getElementById('addFunctionForm').addEventListener('submit', addOrUpdateFunction);
-// document.getElementById('bulkAddForm').addEventListener('submit', bulkAddFunctionsWithAI); // ELIMINADO: Bulk Add Listener
 document.getElementById('validateSyntaxButton').addEventListener('click', validateFunctionWithAI);
             document.getElementById('descriptionSearchButton').addEventListener('click', generateSQLQuery);
-// <-- Botón Generador
             document.getElementById('fixButton').addEventListener('click', fixSyntaxWithAI);
-document.getElementById('createAdminForm').addEventListener('submit', createAdmin);
+
+            // NUEVO LISTENER: Consulta General
+            document.getElementById('generalQueryButton').addEventListener('click', generateGeneralQuery); 
+
+            document.getElementById('createAdminForm').addEventListener('submit', createAdmin);
 document.getElementById('functionSearchInput').addEventListener('input', searchFunctions);
             document.getElementById('confirmBtn').addEventListener('click', () => handleConfirm(true));
             document.getElementById('cancelBtn').addEventListener('click', () => handleConfirm(false));
@@ -1087,6 +1166,18 @@ Rápidos (Clic para usar)</h3>
                 </section>
             </main>
             
+            <section id="generalQuerySection" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-600 mb-8 text-gray-100">
+                <h2 class="text-2xl font-bold mb-4 text-gray-100">Consulta General de Programación</h2> 
+                <p class="text-sm text-gray-400 mb-4">Usa esta sección para preguntas conceptuales sobre programación, SQL o bases de datos (Ej: "¿Qué es un índice en SQL?" o "¿Cómo funciona un ORM?").</p>
+                <div class="mb-4">
+                    <label for="generalQueryInput" class="block text-sm font-medium text-gray-300 mb-1">Ingresa tu consulta:</label> 
+                    <textarea id="generalQueryInput" rows="3" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100" placeholder="Ej: ¿Cuál es la diferencia entre UNION y UNION ALL?"></textarea>
+                </div>
+                <button id="generalQueryButton" type="button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
+                    Obtener Respuesta Conceptual 💡
+                </button>
+                <div id="generalQueryResults" class="mt-4"></div>
+            </section>
             <section id="notificationsSection" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-600 mb-8 hidden 
 text-gray-100">
                 <h2 class="text-2xl font-bold mb-4 text-gray-100">Notificaciones del 
