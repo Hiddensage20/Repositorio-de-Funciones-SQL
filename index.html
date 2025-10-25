@@ -807,24 +807,24 @@ const runSQLQuery = async (description, isContextual) => {
     if (isContextual) {
         // --- LÓGICA DE DETECCIÓN DE PREGUNTA CONCEPTUAL EN MODO CONTEXTUAL (REPARADA) ---
         
-        // Detección de pregunta conceptual O DE RESUMEN de datos
-        if (lowerDescription.includes('tablas') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura') || lowerDescription.includes('esquema') || lowerDescription.includes('quiénes son') || lowerDescription.includes('dime quiénes') || lowerDescription.includes('muéstrame quiénes') || lowerDescription.includes('qué hay')) {
+        // Criterio de detección de pregunta conceptual (sobre el esquema O resultado DESCRIPTIVO)
+        const requiresTextualExplanation = lowerDescription.includes('tablas') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura') || lowerDescription.includes('esquema') || lowerDescription.includes('quiénes son') || lowerDescription.includes('dime quiénes') || lowerDescription.includes('muéstrame quiénes') || lowerDescription.includes('qué hay');
+
+        if (requiresTextualExplanation) {
             isCodeResponseExpected = false; // Esperamos una respuesta en TEXTO
 
-            prompt = `Eres un asistente de base de datos experto. Analiza el esquema DDL provisto a continuación y responde a la pregunta del usuario.
-            Si la pregunta es sobre la estructura o el contenido general (ej: 'dime quiénes tienen préstamos'), proporciona una respuesta descriptiva basada en el esquema.
-            Responde ÚNICAMENTE con texto descriptivo y formatéalo con Markdown. Nunca uses código SQL.
+            prompt = `Eres un asistente de base de datos experto. Tu objetivo es explicar la respuesta a la consulta del usuario basándote ÚNICAMENTE en el esquema DDL provisto a continuación. 
+            No generes código SQL. Responde con un resumen descriptivo y legible.
             --- DB SCHEMA ---
             ${dbSchema}
             --- END SCHEMA ---
             Consulta: "${description}"`;
             
-            // Usaremos un prefijo claro para indicar que es una respuesta conceptual,
-            // ya que no podemos confiar en la instrucción de "nunca uses código SQL".
-            systemInstructionText = "Responde como un consultor de bases de datos utilizando el esquema provisto. Tu respuesta DEBE comenzar con 'RESPUESTA_TEXTO:' y ser texto Markdown, o ser 'NO:SQL'.";
+            // Usaremos un prefijo claro para indicar que es una respuesta conceptual
+            systemInstructionText = "Responde como un consultor de bases de datos utilizando el esquema provisto. Tu respuesta DEBE comenzar con 'RESPUESTA_TEXTO:' y ser texto Markdown.";
 
         } else {
-            // Pregunta de generación de código
+            // Pregunta de generación de código (Default para modo contextual)
             isCodeResponseExpected = true;
             prompt = `Eres un experto en SQL que actúa como asistente de un programador. Tienes acceso a esta estructura de base de datos (DB): 
             --- DB SCHEMA ---
@@ -1035,7 +1035,7 @@ const generateGeneralQuery = async (e) => {
         
     } catch (error) {
         console.error("Error al generar consulta general:", error);
-        resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Error al conectar con la IA para la consulta general.</p>`;
+        resultsDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error al conectar con la IA para la consulta general.</p>`;
     } finally {
         button.textContent = 'Obtener Respuesta Conceptual 💡';
         button.disabled = false;
