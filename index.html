@@ -174,17 +174,6 @@ const ADMINS_PATH = `${DB_ROOT}/admins`;
         // ************************************************************
         
         // --- Funciones del Modal de Esquema DB ---
-        const showDBSchemaModal = () => {
-            document.getElementById('dbSchemaModal').classList.remove('hidden');
-            document.getElementById('dbSchemaModal').classList.add('flex');
-            document.getElementById('dbSchemaInput').value = dbSchema || '';
-        };
-
-        const hideDBSchemaModal = () => {
-            document.getElementById('dbSchemaModal').classList.add('hidden');
-            document.getElementById('dbSchemaModal').classList.remove('flex');
-        };
-
         const updateDBSchema = (schema) => {
             dbSchema = schema;
             localStorage.setItem('dbSchema', schema);
@@ -806,24 +795,45 @@ const runSQLQuery = async (description, isContextual) => {
     button.disabled = true;
     resultsDiv.innerHTML = '';
     
-    resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-blue-200 text-blue-800">Generando consulta SQL...</p>`;
+    resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-blue-200 text-blue-800">Generando consulta...</p>`;
     
     const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q"; // <-- CLAVE AÚN EXPUESTA
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
-    let systemInstructionText = "Genera exclusivamente código SQL para bases de datos relacionales, sin ningún texto, explicación o comentarios. Si la solicitud no es de SQL, responde con 'NO:SQL'.";
-    let prompt = `Eres un experto en SQL. Genera una consulta SQL (solo el código, no expliques nada) basada en la siguiente descripción. 
-Si la descripción NO está relacionada con SQL, bases de datos, o programación, responde estrictamente con: NO:SQL. 
-Descripción: "${description}".`;
+    let systemInstructionText, prompt;
+    let isCodeResponseExpected = true; // Controla si esperamos código o texto
 
     if (isContextual) {
-        // Modo Contextual: La IA recibe el esquema para consultas específicas.
-        prompt = `Eres un experto en SQL que actúa como asistente de un programador. Tienes acceso a esta estructura de base de datos (DB): 
-        --- DB SCHEMA ---
-        ${dbSchema}
-        --- END SCHEMA ---
-        Basándote SOLAMENTE en el esquema proporcionado, genera la consulta SQL que responde a la siguiente solicitud. Si no es posible con el esquema dado, dilo. No incluyas comentarios ni explicaciones. Solicitud: "${description}".`;
-        systemInstructionText = "Genera exclusivamente código SQL, sin explicaciones ni comentarios, que resuelva la solicitud usando el esquema provisto. Si la respuesta no es SQL, responde con 'NO:SQL'.";
+        // Modo Contextual
+        const lowerDescription = description.toLowerCase();
+        
+        // 1. Detección de pregunta conceptual sobre la estructura
+        if (lowerDescription.includes('tablas existentes') || lowerDescription.includes('qué tablas hay') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura de')) {
+            isCodeResponseExpected = false; // Esperamos una respuesta en texto
+            prompt = `Eres un asistente experto en bases de datos que analiza el esquema DDL a continuación para responder preguntas conceptuales sobre su estructura.
+            Responde la siguiente consulta basándote ÚNICAMENTE en el Esquema provisto. No generes SQL.
+            --- DB SCHEMA ---
+            ${dbSchema}
+            --- END SCHEMA ---
+            Consulta: "${description}"`;
+            systemInstructionText = "Responde como un experto consultor de bases de datos utilizando el esquema provisto. Utiliza listas o formatos claros en tu respuesta. Nunca generes código SQL.";
+        } else {
+            // 2. Pregunta de generación de código (Default)
+            isCodeResponseExpected = true;
+            prompt = `Eres un experto en SQL que actúa como asistente de un programador. Tienes acceso a esta estructura de base de datos (DB): 
+            --- DB SCHEMA ---
+            ${dbSchema}
+            --- END SCHEMA ---
+            Basándote SOLAMENTE en el esquema proporcionado, genera la consulta SQL que responde a la siguiente solicitud. Si no es posible con el esquema dado, dilo. No incluyas comentarios ni explicaciones. Solicitud: "${description}".`;
+            systemInstructionText = "Genera exclusivamente código SQL, sin explicaciones ni comentarios, que resuelva la solicitud usando el esquema provisto. Si la respuesta no es SQL, responde con 'NO:SQL'.";
+        }
+    } else {
+        // Modo Normal
+        isCodeResponseExpected = true;
+        prompt = `Eres un experto en SQL. Genera una consulta SQL (solo el código, no expliques nada) basada en la siguiente descripción. 
+        Si la descripción NO está relacionada con SQL, bases de datos, o programación, responde estrictamente con: NO:SQL. 
+        Descripción: "${description}".`;
+        systemInstructionText = "Genera exclusivamente código SQL para bases de datos relacionales, sin ningún texto, explicación o comentarios. Si la solicitud no es de SQL, responde con 'NO:SQL'.";
     }
 
     const payload = {
@@ -847,26 +857,37 @@ Descripción: "${description}".`;
         
         const responseText = text.trim();
 
-        if (responseText.toUpperCase() === 'NO:SQL') {
+        if (responseText.toUpperCase().includes('NO:SQL')) {
              resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">
                 ⚠️ Te recuerdo que este sitio está diseñado para temas relacionados con **SQL y programación**. Este tipo de consultas no pueden ser resueltas aquí.
             </p>`;
              return;
         }
-
-        const sqlCode = responseText.replace(/```sql|```/g, '').trim();
         
-        resultsDiv.innerHTML = `
-            <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Consulta Generada:</h3>
-            <div class="bg-gray-800 p-4 rounded-lg border border-blue-400 overflow-x-auto">
-                <pre class="whitespace-pre-wrap font-mono text-gray-100"><code>${sqlCode}</code></pre>
-            </div>
-        `;
-        showMessage('Consulta SQL generada con éxito.', 'success');
+        if (isCodeResponseExpected) {
+            // Si esperamos código SQL, lo mostramos en el formato pre-tag
+            const sqlCode = responseText.replace(/```sql|```/g, '').trim();
+            resultsDiv.innerHTML = `
+                <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Consulta Generada:</h3>
+                <div class="bg-gray-800 p-4 rounded-lg border border-blue-400 overflow-x-auto">
+                    <pre class="whitespace-pre-wrap font-mono text-gray-100"><code>${sqlCode}</code></pre>
+                </div>
+            `;
+        } else {
+            // Si es respuesta conceptual, usamos el formato Markdown
+             resultsDiv.innerHTML = `
+                <h3 class="text-xl font-bold mt-4 mb-2 text-gray-100">Respuesta de Asistencia:</h3>
+                <div class="bg-gray-800 p-4 rounded-lg border border-blue-400 overflow-x-auto prose prose-invert text-gray-100">
+                    ${marked.parse(responseText)}
+                </div>
+            `;
+        }
+        
+        showMessage('Consulta procesada con éxito.', 'success');
         
     } catch (error) {
-        console.error("Error al generar la consulta SQL:", error);
-        resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Error al generar la consulta: ${error.message}. Intenta de nuevo.</p>`;
+        console.error("Error al generar la consulta:", error);
+        resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Error al procesar la consulta: ${error.message}. Intenta de nuevo.</p>`;
     } finally {
         button.textContent = isContextual ? 'Generar Consulta Contextual 💡' : 'Generar Consulta SQL ✨';
         button.disabled = false;
@@ -1002,7 +1023,7 @@ const generateGeneralQuery = async () => {
         
     } catch (error) {
         console.error("Error al generar consulta general:", error);
-        resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Error al conectar con la IA para la consulta general.</p>`;
+        resultsDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error al conectar con la IA para la consulta general.</p>`;
     } finally {
         button.textContent = 'Obtener Respuesta Conceptual 💡';
         button.disabled = false;
@@ -1436,7 +1457,7 @@ px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:rin
                     
                     <div class="mb-4">
                         <label for="specificQueryInput" class="block text-sm font-medium text-gray-300 mb-1">Pregunta sobre tu Base de Datos:</label>
-                        <textarea id="specificQueryInput" rows="3" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-100" placeholder="Ej: Necesito saber cuántos usuarios se registraron la semana pasada en la tabla 'Usuarios'."></textarea>
+                        <textarea id="specificQueryInput" rows="3" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100" placeholder="Ej: Necesito saber cuántos usuarios se registraron la semana pasada en la tabla 'Usuarios'."></textarea>
                     </div>
                     <button id="specificQueryButton" class="w-full btn-primary-bg text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
                         Generar Consulta Contextual 💡
