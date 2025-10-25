@@ -807,14 +807,16 @@ const runSQLQuery = async (description, isContextual) => {
     if (isContextual) {
         // --- LÓGICA DE DETECCIÓN DE PREGUNTA CONCEPTUAL EN MODO CONTEXTUAL (REPARADA) ---
         
-        // Criterio de detección de pregunta conceptual (sobre el esquema O resultado DESCRIPTIVO)
-        const requiresTextualExplanation = lowerDescription.includes('tablas') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura') || lowerDescription.includes('esquema') || lowerDescription.includes('quiénes son') || lowerDescription.includes('dime quiénes') || lowerDescription.includes('muéstrame quiénes') || lowerDescription.includes('qué hay');
+        // Criterio de detección de pregunta conceptual O DE RESUMEN de datos
+        // NOTA: Se ha ampliado el criterio para incluir preguntas de "quiénes son" y "si han pedido".
+        const requiresTextualExplanation = lowerDescription.includes('tablas') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura') || lowerDescription.includes('esquema') || lowerDescription.includes('quiénes son') || lowerDescription.includes('dime quiénes') || lowerDescription.includes('muéstrame quiénes') || lowerDescription.includes('si tienen') || lowerDescription.includes('qué hay');
 
         if (requiresTextualExplanation) {
             isCodeResponseExpected = false; // Esperamos una respuesta en TEXTO
 
-            prompt = `Eres un asistente de base de datos experto. Tu objetivo es explicar la respuesta a la consulta del usuario basándote ÚNICAMENTE en el esquema DDL provisto a continuación. 
-            No generes código SQL. Responde con un resumen descriptivo y legible.
+            prompt = `Eres un asistente de base de datos experto. Analiza el esquema DDL provisto a continuación y responde a la pregunta del usuario.
+            Si la pregunta es sobre la estructura o requiere resumir información (ej: 'quienes son los alumnos que tienen préstamo'), genera una respuesta descriptiva y legible.
+            Responde ÚNICAMENTE con texto descriptivo y formatéalo con Markdown. Nunca uses código SQL en esta respuesta.
             --- DB SCHEMA ---
             ${dbSchema}
             --- END SCHEMA ---
