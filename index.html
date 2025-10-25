@@ -382,96 +382,11 @@ button.disabled = false;
             }
         };
 // ************************************************************
-// ********* FUNCIÓN PARA AÑADIR MÚLTIPLES COMANDOS CON IA *****
+// ********* FUNCIÓN PARA AÑADIR MÚLTIPLES COMANDOS CON IA (ELIMINADA) *****
 // ************************************************************
-const bulkAddFunctionsWithAI = async (event) => {
-    event.preventDefault();
-const bulkInput = document.getElementById('bulkInput').value.trim();
-    const resultDiv = document.getElementById('bulkResult');
-    const button = document.getElementById('bulkAddButton');
-if (!loggedInUser) {
-        resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Debes iniciar sesión para usar la adición masiva.</p>`;
-return;
-    }
-
-    if (!bulkInput) {
-        resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Por favor, ingresa una lista de conceptos o consultas para procesar.</p>`;
-return;
-    }
-
-    button.textContent = 'Procesando...';
-    button.disabled = true;
-resultDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-blue-200 text-blue-800">Analizando y estructurando comandos con IA...</p>`;
-
-    const apiKey = "AIzaSyBUjsv2ZW2vRjLuD2pAwVtgurMdTkXCO4Q";
-const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`; 
-
-    let prompt = `Eres un asistente experto en SQL.
-La entrada es una lista de comandos SQL, conceptos o descripciones.
-Tu tarea es procesar esta lista y generar una respuesta estructurada en formato JSON, donde cada elemento tiene 'name', 'description' y 'syntax'.
-Para cada elemento, asegúrate de que 'syntax' contenga el comando SQL real y la 'description' sea una explicación breve.
-Ejemplo de formato de salida JSON:
-    [{ "name": "SELECT", "description": "Recupera datos de una o más tablas.", "syntax": "SELECT column1, column2 FROM table_name WHERE condition;"
-}, { "name": "..." , "description": "...", "syntax": "..." }]
-
-    Entrada a procesar: "${bulkInput}"`;
-const payload = {
-        contents: [{ parts: [{ text: prompt }] }],
-        config: {
-            responseMimeType: "application/json",
-        },
-    };
-try {
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-const result = await response.json();
-        const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
-        const commands = JSON.parse(jsonText);
-if (!Array.isArray(commands) || commands.length === 0) {
-            resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error: La IA no pudo generar una lista de comandos válida.
-Intenta con una lista más clara.</p>`;
-            return;
-        }
-
-        let addedCount = 0;
-let failedCount = 0;
-
-        for (const cmd of commands) {
-            if (cmd.name && cmd.syntax) {
-                await addDoc(collection(db, FUNCTIONS_PATH), {
-                    name: cmd.name,
-                    description: cmd.description || 'Sin descripción.',
-           
-          syntax: cmd.syntax,
-                    createdAt: new Date()
-                });
-await addDoc(collection(db, LOGS_PATH), {
-                    action: "bulk_added",
-                    user: loggedInUser.username,
-                    functionName: cmd.name,
-                    timestamp: new Date()
-            
-     });
-                addedCount++;
-            } else {
-                failedCount++;
-}
-        }
-
-        resultDiv.innerHTML = `<p class="mt-4 text-center text-emerald-800 bg-emerald-200 p-3 rounded-lg">¡Proceso Terminado!
-Se agregaron ${addedCount} comandos con éxito. Fallaron ${failedCount}.</p>`;
-        document.getElementById('bulkInput').value = '';
-} catch (error) {
-        console.error("Error en la adición masiva con IA:", error);
-resultDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error de conexión o formato: No se pudo procesar la adición masiva.</p>`;
-} finally {
-        button.textContent = 'Añadir Comandos Masivamente con IA 🚀';
-button.disabled = false;
-    }
-};
+// const bulkAddFunctionsWithAI = async (event) => { ... } 
+// La función fue eliminada
+// ************************************************************
 
         
 const addOrUpdateFunction = async (event) => {
@@ -683,9 +598,9 @@ adminMessage.textContent = 'Error: Se creó la cuenta de Auth, pero falló el re
 // Ocultar secciones de administración
                 document.getElementById('addFunctionSection').classList.add('hidden');
 document.getElementById('fixErrorSection').classList.add('hidden');
-                document.getElementById('adminManagementSection').classList.add('hidden');
+                // document.getElementById('adminManagementSection').classList.add('hidden'); // Eliminada la referencia
                 document.getElementById('notificationsSection').classList.add('hidden');
-                document.getElementById('bulkAddSection').classList.add('hidden'); // Ocultar sección masiva
+                // document.getElementById('bulkAddSection').classList.add('hidden'); // Eliminada la referencia
                 
                 // Mostrar/Ocultar elementos del menú
                 document.getElementById('adminDropdownLogin').classList.remove('hidden');
@@ -764,14 +679,12 @@ return;
 document.getElementById('adminDropdownLogout').classList.remove('hidden');
                 document.getElementById('adminDropdownManagement').classList.remove('hidden');
 
-                // **********************************************
-                // ********* CORRECCIÓN APLICADA AQUÍ ***********
-                // **********************************************
+
                 document.getElementById('addFunctionSection').classList.remove('hidden');
                 document.getElementById('fixErrorSection').classList.remove('hidden');
-                // document.getElementById('adminManagementSection').classList.remove('hidden'); // LÍNEA DE ERROR ELIMINADA
-                document.getElementById('bulkAddSection').classList.remove('hidden'); // Mostrar sección masiva
-
+                // document.getElementById('adminManagementSection').classList.remove('hidden'); // Eliminada la referencia
+                // document.getElementById('bulkAddSection').classList.remove('hidden'); // Eliminada la referencia
+                
                 displayFunctions();
 // Refresca botones de editar/eliminar
 
@@ -960,7 +873,7 @@ document.getElementById('adminLoginModal').classList.remove('flex');
 
             document.getElementById('loginForm').addEventListener('submit', login);
             document.getElementById('addFunctionForm').addEventListener('submit', addOrUpdateFunction);
-document.getElementById('bulkAddForm').addEventListener('submit', bulkAddFunctionsWithAI); // AÑADIDO: Bulk Add Listener
+// document.getElementById('bulkAddForm').addEventListener('submit', bulkAddFunctionsWithAI); // ELIMINADO: Bulk Add Listener
 document.getElementById('validateSyntaxButton').addEventListener('click', validateFunctionWithAI);
             document.getElementById('descriptionSearchButton').addEventListener('click', generateSQLQuery);
 // <-- Botón Generador
@@ -1248,26 +1161,6 @@ px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:rin
             
  </section>
             
-            <section id="bulkAddSection" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-600 mt-8 hidden text-gray-100">
-                <h2 class="text-2xl font-bold mb-4 text-gray-100">Añadir Múltiples Comandos con IA</h2> 
-                <p class="text-sm text-gray-400 mb-4">Pega una lista simple de conceptos SQL (uno por línea o separados por comas).
-La IA los generará, estructurará y guardará automáticamente.</p>
-                <form id="bulkAddForm">
-                    <div class="mb-4">
-                        <label for="bulkInput" class="block text-sm font-medium text-gray-300 mb-1">Lista de Comandos/Conceptos:</label> 
-                      
-                      <textarea id="bulkInput" rows="5" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100" placeholder="Ej: INNER JOIN, GROUP BY, Función AVG, Crear tabla de usuarios."></textarea>
-                    </div>
-                    
-                    <button id="bulkAddButton" type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
-  
-                       Añadir Comandos Masivamente con IA 🚀
-                    </button>
-                    <div id="bulkResult" class="mt-4 text-center"></div>
-                </form>
-            </section>
-  
-           
             </div>
     </div>
 
