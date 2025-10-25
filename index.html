@@ -189,6 +189,7 @@ const ADMINS_PATH = `${DB_ROOT}/admins`;
             dbSchema = schema;
             localStorage.setItem('dbSchema', schema);
             showMessage('Esquema guardado. La Asistencia Personalizada está lista para usar.', 'success');
+            updateAssistanceSchemaStatus(); // Actualizar estado en la nueva vista
         };
         
         const showSpecificAssistanceView = () => {
@@ -216,6 +217,7 @@ const ADMINS_PATH = `${DB_ROOT}/admins`;
                 statusElement.classList.remove('text-rose-500');
                 statusElement.classList.add('text-emerald-500');
                 statusMessage.innerHTML = '¡Esquema cargado! Haz tu consulta sobre la estructura de la base de datos.';
+                document.getElementById('specificSchemaStatusContainer').classList.remove('text-rose-500'); // Quitar color de error si aplica
             } else {
                 statusElement.textContent = 'Pendiente.';
                 statusElement.classList.remove('text-emerald-500');
@@ -228,12 +230,21 @@ const ADMINS_PATH = `${DB_ROOT}/admins`;
             const reader = new FileReader();
             reader.onload = (e) => {
                 updateDBSchema(e.target.result);
-                updateAssistanceSchemaStatus();
+                // Opcional: llenar el área de texto con el archivo cargado
+                document.getElementById('schemaTextInput').value = e.target.result;
             };
             reader.onerror = () => {
                 showMessage('Error al leer el archivo.', 'error');
             };
             reader.readAsText(file);
+        };
+        
+        const clearDBSchemaWithConfirmation = () => {
+            showConfirmModal('¿Estás seguro de que deseas eliminar el esquema de la base de datos? Esto desactivará la Asistencia Personalizada.', () => {
+                updateDBSchema(null); // Limpiar esquema
+                showMessage('Esquema borrado. Asistencia Personalizada desactivada.', 'info');
+                document.getElementById('schemaTextInput').value = ''; // Limpiar el área de texto
+            });
         };
         // --- Fin Funciones de Esquema DB ---
 
@@ -991,7 +1002,7 @@ const generateGeneralQuery = async () => {
         
     } catch (error) {
         console.error("Error al generar consulta general:", error);
-        resultsDiv.innerHTML = `<p class="mt-4 text-center text-rose-800 bg-rose-200 p-3 rounded-lg">Error al conectar con la IA para la consulta general.</p>`;
+        resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">Error al conectar con la IA para la consulta general.</p>`;
     } finally {
         button.textContent = 'Obtener Respuesta Conceptual 💡';
         button.disabled = false;
@@ -1078,6 +1089,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     document.getElementById('specificQueryButton').addEventListener('click', generateSpecificQuery);
+    document.getElementById('clearSchemaBtn').addEventListener('click', clearDBSchemaWithConfirmation); // NUEVO LISTENER
 
 
     // Listeners de formularios y botones que fallaban
@@ -1122,26 +1134,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                     </button>
                     <ul class="dropdown-menu absolute hidden text-gray-100 pt-1 left-0 z-20 w-48 shadow-xl border border-gray-600 bg-gray-800 rounded-lg overflow-hidden transition-colors duration-300">
-                        <li><a id="theme-default" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Principal</a></li>
-                        <li><a id="theme-hacker" class="bg-green-700 hover:bg-green-800 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Hacker</a></li>
-                        <li><a id="theme-light" class="bg-white hover:bg-gray-200 text-gray-800 py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Clásico</a></li>
-                        <li><a id="theme-alert" class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Alerta</a></li>
+                        <li><a id="theme-default" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Principal (Azul)</a></li>
+                        <li><a id="theme-hacker" class="bg-green-700 hover:bg-green-800 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Hacker (Verde)</a></li>
+                        <li><a id="theme-light" class="bg-white hover:bg-gray-200 text-gray-800 py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Clásico (Blanco)</a></li>
+                        <li><a id="theme-alert" class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Alerta (Rojo)</a></li>
                     </ul>
                 </div>
 
                 <div class="dropdown inline-block relative">
                     <button class="dropdown-button-accent text-white font-semibold py-2 px-4 rounded inline-flex items-center hover:theme-accent-hover transition duration-200">
-                        <span class="mr-1">Admin</span>
-                        <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
-20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
- 
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16m-7 6h7"/>
+                        </svg>
                     </button>
                     <ul class="dropdown-menu absolute hidden text-gray-100 pt-1 right-0 z-20 w-64 shadow-xl border border-gray-600 bg-gray-800 rounded-lg overflow-hidden transition-colors duration-300">
                         
       <li id="adminDropdownLogin">
                             <a id="showLoginButton" class="btn-primary-bg text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">
                                 Iniciar Sesión
-             
           </a>
                         </li>
                         
@@ -1154,7 +1164,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <li id="adminDropdownManagement" class="hidden">
                             <a id="showAdminManagementButton" class="bg-gray-700 hover:bg-gray-600 text-gray-100 py-2 
 px-4 block whitespace-no-wrap cursor-pointer text-sm font-medium transition-colors duration-300">
-  
                                 Crear Admin
                             </a>
                         </li>
@@ -1162,8 +1171,6 @@ px-4 block whitespace-no-wrap cursor-pointer text-sm font-medium transition-colo
             
                         <li id="adminDropdownLogout" class="hidden">
                             <a id="logoutButton" class="bg-rose-500 hover:bg-rose-600 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">
-                         
-     
     Cerrar Sesión
                             </a>
                         </li>
@@ -1402,20 +1409,26 @@ px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:rin
                 <section class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-600 lg:col-span-1 h-fit text-gray-100">
                     <h2 class="text-2xl font-bold mb-4 text-sky-400">1. Estructura de la Base de Datos</h2>
                     
-                    <p class="text-sm text-gray-400 mb-4 border-b border-gray-600 pb-2">Estado del Esquema: <span id="specificSchemaStatus" class="text-rose-500 font-semibold">Pendiente.</span></p>
+                    <div id="specificSchemaStatusContainer" class="text-sm text-gray-400 mb-4 border-b border-gray-600 pb-2">
+                        Estado del Esquema: <span id="specificSchemaStatus" class="text-rose-500 font-semibold">Pendiente.</span>
+                    </div>
                     <p id="specificSchemaMessage" class="text-sm text-gray-400 mb-4">⚠️ **Debes cargar el Esquema de la DB** (DDL) para activar la asistencia personalizada.</p>
                     
                     <h3 class="text-xl font-bold mt-8 mb-3 text-gray-100">Opción A: Pegar Código DDL</h3>
                     <form id="dbSchemaFormText">
-                        <textarea id="schemaTextInput" rows="6" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100 font-mono" placeholder="Ej: CREATE TABLE Usuarios (id INT, nombre VARCHAR(50));"></textarea>
+                        <textarea id="schemaTextInput" rows="6" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100 font-mono" placeholder="Ej: CREATE TABLE Productos (id INT, nombre VARCHAR(100), precio DECIMAL(10,2));"></textarea>
                         <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200 mt-2">
                             Guardar Esquema
                         </button>
                     </form>
                     
-                    <h3 class="text-xl font-bold mt-8 mb-3 text-gray-100">Opción B: Importar Archivo (.sql / .txt)</h3>
+                    <h3 class="text-xl font-bold mt-8 mb-3 text-gray-100 border-t border-gray-600 pt-4 mt-4">Opción B: Importar Archivo (.sql / .txt)</h3>
                     <input type="file" id="schemaFileInput" accept=".sql,.txt" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-700"/>
                     <p class="text-xs text-gray-400 mt-2">Formatos aceptados: .sql, .txt (solo texto plano).</p>
+                    
+                    <button id="clearSchemaBtn" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200 mt-6">
+                        Limpiar Esquema Cargado
+                    </button>
                 </section>
                 
                 <section class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-600 lg:col-span-2 h-fit text-gray-100">
