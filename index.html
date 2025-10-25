@@ -13,12 +13,13 @@
             --bg-body: #111827; /* gray-900 */
             --bg-primary: #1F2937; /* gray-800 */
             --bg-secondary: #374151; /* gray-700 */
-            --bg-code: #1F2937; /* gray-800 */
             --text-body: #F9FAFB; /* gray-50 */
             --text-secondary: #D1D5DB; /* gray-300 */
-            --color-accent: #2563EB; /* blue-600 */
-            --color-highlight: #3B82F6; /* blue-500 */
+            --color-header: #2563EB; /* blue-600 */
+            --color-accent: #3B82F6; /* blue-500 */
             --color-danger: #F43F5E; /* rose-500 */
+            --color-success: #10B981; /* emerald-500 */
+            --color-info: #60A5FA; /* blue-400 */
         }
 
         /* ---------------- TEMA 1: HACKER (Verde y Negro) ---------------- */
@@ -26,52 +27,69 @@
             --bg-body: #000000;
             --bg-primary: #0A0A0A;
             --bg-secondary: #1F1F1F;
-            --bg-code: #000000;
             --text-body: #00FF00; /* Neon Green */
             --text-secondary: #00B300;
+            --color-header: #008000;
             --color-accent: #00B300;
-            --color-highlight: #00FF00;
-            --color-danger: #DC2626; /* Red for errors */
+            --color-danger: #FF0000; /* Red for errors */
+            --color-success: #00FF00;
+            --color-info: #00B300;
         }
         /* ---------------- TEMA 2: TRADICIONAL (Blanco y Negro) ---------------- */
         .theme-light {
             --bg-body: #FFFFFF;
             --bg-primary: #F3F4F6; /* gray-100 */
             --bg-secondary: #D1D5DB; /* gray-300 */
-            --bg-code: #E5E7EB; /* gray-200 */
             --text-body: #1F2937; /* gray-800 */
             --text-secondary: #4B5563; /* gray-600 */
-            --color-accent: #1D4ED8; /* blue-700 */
-            --color-highlight: #3B82F6; /* blue-500 */
+            --color-header: #1D4ED8; /* blue-700 */
+            --color-accent: #3B82F6; /* blue-500 */
             --color-danger: #DC2626; /* Red */
+            --color-success: #059669; /* emerald-600 */
+            --color-info: #60A5FA;
         }
         /* ---------------- TEMA 3: ALERTA (Rojo y Negro) ---------------- */
         .theme-alert {
             --bg-body: #1F0000;
             --bg-primary: #330000;
             --bg-secondary: #4B0000;
-            --bg-code: #200000;
             --text-body: #FEE2E2; /* Red-100 */
             --text-secondary: #FCA5A5; /* Red-300 */
+            --color-header: #B91C1C;
             --color-accent: #DC2626; /* Red-600 */
-            --color-highlight: #EF4444; /* Red-500 */
             --color-danger: #FDE047; /* Yellow for errors */
+            --color-success: #4ADE80; /* Green for success */
+            --color-info: #F87171;
         }
         
-        /* Mapeo de variables Tailwind con Variables CSS */
-        .bg-gray-900 { background-color: var(--bg-body); }
-        .bg-gray-800 { background-color: var(--bg-primary); }
-        .bg-gray-700 { background-color: var(--bg-secondary); }
-        .text-gray-100 { color: var(--text-body); }
-        .text-gray-300 { color: var(--text-secondary); }
-        .bg-blue-700 { background-color: var(--color-accent); }
-        .bg-blue-600 { background-color: var(--color-accent); }
-        .hover\:bg-blue-700:hover { background-color: var(--color-accent); }
-        .bg-blue-500 { background-color: var(--color-highlight); }
-        .hover\:bg-blue-600:hover { background-color: var(--color-highlight); }
-        .bg-rose-500 { background-color: var(--color-danger); }
-        .hover\:bg-rose-600:hover { background-color: var(--color-danger); }
+        /* Mapeo de variables CSS a clases de Tailwind (Alta Especificidad) */
+        body {
+            background-color: var(--bg-body) !important;
+            color: var(--text-body) !important;
+        }
+        /* Color del Header */
+        header { background-color: var(--color-header) !important; }
 
+        /* Colores de Fondo Principales (Secciones y Cartas) */
+        .bg-gray-800 { background-color: var(--bg-primary) !important; }
+        .bg-gray-700 { background-color: var(--bg-secondary) !important; }
+        .text-gray-100 { color: var(--text-body) !important; }
+        .text-gray-300 { color: var(--text-secondary) !important; }
+        
+        /* Colores de Botones y Acentos Dinámicos (Clase 'theme-accent') */
+        .theme-accent { background-color: var(--color-accent) !important; }
+        .theme-accent-hover:hover { background-color: var(--color-accent) !important; }
+        .theme-accent-text { color: var(--color-accent) !important; }
+        .theme-highlight-border { border-color: var(--color-accent) !important; }
+
+        /* Colores de Mensajes de Estado */
+        .bg-rose-200 { background-color: var(--color-danger); opacity: 0.2; }
+        .text-rose-800 { color: var(--color-danger); }
+        .bg-emerald-200 { background-color: var(--color-success); opacity: 0.2; }
+        .text-emerald-800 { color: var(--color-success); }
+        .bg-blue-200 { background-color: var(--color-info); opacity: 0.2; }
+        .text-blue-800 { color: var(--color-info); }
+        
         /* Estilo para el menú desplegable */
         .dropdown:hover .dropdown-menu {
             display: block;
@@ -132,6 +150,26 @@ const ADMINS_PATH = `${DB_ROOT}/admins`;
                 body.classList.add(`theme-${themeName}`);
              }
              localStorage.setItem('theme', themeName);
+
+             // Reaplicar clases a elementos clave para forzar la actualización de Tailwind
+             // Esto es vital para que Tailwind reconozca los cambios de variables CSS
+             updateDynamicElements(); 
+        };
+
+        const updateDynamicElements = () => {
+            // Actualiza botones principales
+            document.querySelectorAll('.btn-primary-bg').forEach(el => {
+                el.classList.add('theme-accent');
+                el.classList.add('theme-accent-hover');
+                el.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'bg-sky-600', 'hover:bg-sky-700');
+            });
+
+            // Actualiza la barra de navegación y botones dropdown
+            document.querySelector('header').classList.add('theme-accent-bg');
+            document.querySelectorAll('.dropdown-button-accent').forEach(el => {
+                el.classList.add('theme-accent');
+                el.classList.add('theme-accent-hover');
+            });
         };
         // ************************************************************
 
@@ -1040,32 +1078,35 @@ document.getElementById('validationMessage').innerHTML = '';
             document.getElementById('funcName').addEventListener('input', resetValidation);
             document.getElementById('funcDescription').addEventListener('input', resetValidation);
             document.getElementById('funcSyntax').addEventListener('input', resetValidation);
+
+            // Inicializar colores dinámicos después de cargar listeners
+            updateDynamicElements();
         });
 </script>
 </head>
 <body class="bg-gray-900 font-sans leading-normal tracking-normal text-gray-100">
 
-    <header class="bg-blue-700 shadow-xl sticky top-0 z-10">
+    <header class="bg-blue-700 shadow-xl sticky top-0 z-10 theme-accent-bg">
         <div class="container mx-auto px-4 md:px-8 py-3 flex justify-between items-center">
             <h1 class="text-2xl font-extrabold text-white">Código Grabado</h1>
             
             <div class="flex items-center space-x-4">
                 
                 <div class="dropdown inline-block relative">
-                    <button class="bg-blue-600 text-white font-semibold py-2 px-4 rounded inline-flex items-center hover:bg-blue-700 transition duration-200">
+                    <button class="dropdown-button-accent text-white font-semibold py-2 px-4 rounded inline-flex items-center hover:theme-accent-hover transition duration-200">
                         <span class="mr-1">Temas</span>
                         <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                     </button>
                     <ul class="dropdown-menu absolute hidden text-gray-100 pt-1 left-0 z-20 w-48 shadow-xl border border-gray-600 bg-gray-800 rounded-lg overflow-hidden transition-colors duration-300">
-                        <li><a id="theme-default" class="hover:bg-blue-700 py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Principal (Azul)</a></li>
-                        <li><a id="theme-hacker" class="hover:bg-green-700 py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Hacker (Verde)</a></li>
-                        <li><a id="theme-light" class="hover:bg-gray-300 hover:text-gray-800 text-gray-800 bg-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Clásico (Blanco)</a></li>
-                        <li><a id="theme-alert" class="hover:bg-red-700 py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Alerta (Rojo)</a></li>
+                        <li><a id="theme-default" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Principal (Azul)</a></li>
+                        <li><a id="theme-hacker" class="bg-green-700 hover:bg-green-800 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Hacker (Verde)</a></li>
+                        <li><a id="theme-light" class="bg-white hover:bg-gray-200 text-gray-800 py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Clásico (Blanco)</a></li>
+                        <li><a id="theme-alert" class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Alerta (Rojo)</a></li>
                     </ul>
                 </div>
 
                 <div class="dropdown inline-block relative">
-                    <button class="bg-blue-600 text-white font-semibold py-2 px-4 rounded inline-flex items-center hover:bg-blue-700 transition duration-200">
+                    <button class="dropdown-button-accent text-white font-semibold py-2 px-4 rounded inline-flex items-center hover:theme-accent-hover transition duration-200">
                         <span class="mr-1">Admin</span>
                         <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
@@ -1076,7 +1117,7 @@ document.getElementById('validationMessage').innerHTML = '';
           
           
       <li id="adminDropdownLogin">
-                            <a id="showLoginButton" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">
+                            <a id="showLoginButton" class="btn-primary-bg text-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">
                                 Iniciar Sesión
              
           </a>
@@ -1115,7 +1156,7 @@ px-4 block whitespace-no-wrap cursor-pointer text-sm font-medium transition-colo
 
     <div class="container mx-auto p-4 md:p-8">
         
-        <div id="welcomeMessage" class="text-center mt-4 mb-8 text-xl text-blue-300 font-semibold hidden transition-colors duration-300"></div>
+        <div id="welcomeMessage" class="text-center mt-4 mb-8 text-xl text-blue-300 font-semibold hidden transition-colors duration-300 theme-accent-text"></div>
 
         <div id="adminLoginModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center z-50 transition-opacity duration-300">
             <div class="bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-600 max-w-md w-full relative text-gray-100">
@@ -1145,7 +1186,7 @@ text-center">Inicio de Sesión (Admin)</h2>
    
                    
     </div>
-                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
+                        <button type="submit" class="w-full btn-primary-bg text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
                             Ingresar
            
               </button>
@@ -1211,7 +1252,7 @@ focus:ring-sky-500 focus:ring-offset-2 transition duration-200">
  <textarea id="descriptionSearch" rows="3" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-100" placeholder="Ej: 
 Obtener el promedio de ventas de productos por categoría en el último mes.">devuelve datos de una tabla</textarea>
                     </div>
-                    <button id="descriptionSearchButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
+                    <button id="descriptionSearchButton" class="w-full btn-primary-bg text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
                
               
           Generar Consulta SQL ✨
@@ -1255,7 +1296,7 @@ Rápidos (Clic para usar)</h3>
                     <label for="generalQueryInput" class="block text-sm font-medium text-gray-300 mb-1">Ingresa tu consulta:</label> 
                     <textarea id="generalQueryInput" rows="3" class="w-full p-2 border border-gray-600 bg-gray-700 rounded-md text-gray-100" placeholder="Ej: ¿Cuál es la diferencia entre UNION y UNION ALL?"></textarea>
                 </div>
-                <button id="generalQueryButton" type="button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
+                <button id="generalQueryButton" type="button" class="w-full btn-primary-bg text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
                     Obtener Respuesta Conceptual 💡
                 </button>
                 <div id="generalQueryResults" class="mt-4"></div>
@@ -1318,7 +1359,7 @@ p-2 border border-gray-600 bg-gray-700 rounded-md font-mono text-gray-100" requi
                     </div>
                     
                     <button 
-id="validateSyntaxButton" type="button" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 transition duration-200 mb-3">
+id="validateSyntaxButton" type="button" class="w-full btn-primary-bg text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 transition duration-200 mb-3">
                 
           Pre-validar Sintaxis con IA ✨
                     </button>
