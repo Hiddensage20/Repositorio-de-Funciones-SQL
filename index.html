@@ -7,20 +7,81 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> 
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Estilos Base para temas (CSS Variables) */
+        :root {
+            /* Tema por defecto: Principal (Azul y Gris Oscuro) */
+            --bg-body: #111827; /* gray-900 */
+            --bg-primary: #1F2937; /* gray-800 */
+            --bg-secondary: #374151; /* gray-700 */
+            --bg-code: #1F2937; /* gray-800 */
+            --text-body: #F9FAFB; /* gray-50 */
+            --text-secondary: #D1D5DB; /* gray-300 */
+            --color-accent: #2563EB; /* blue-600 */
+            --color-highlight: #3B82F6; /* blue-500 */
+            --color-danger: #F43F5E; /* rose-500 */
+        }
+
+        /* ---------------- TEMA 1: HACKER (Verde y Negro) ---------------- */
+        .theme-hacker {
+            --bg-body: #000000;
+            --bg-primary: #0A0A0A;
+            --bg-secondary: #1F1F1F;
+            --bg-code: #000000;
+            --text-body: #00FF00; /* Neon Green */
+            --text-secondary: #00B300;
+            --color-accent: #00B300;
+            --color-highlight: #00FF00;
+            --color-danger: #DC2626; /* Red for errors */
+        }
+        /* ---------------- TEMA 2: TRADICIONAL (Blanco y Negro) ---------------- */
+        .theme-light {
+            --bg-body: #FFFFFF;
+            --bg-primary: #F3F4F6; /* gray-100 */
+            --bg-secondary: #D1D5DB; /* gray-300 */
+            --bg-code: #E5E7EB; /* gray-200 */
+            --text-body: #1F2937; /* gray-800 */
+            --text-secondary: #4B5563; /* gray-600 */
+            --color-accent: #1D4ED8; /* blue-700 */
+            --color-highlight: #3B82F6; /* blue-500 */
+            --color-danger: #DC2626; /* Red */
+        }
+        /* ---------------- TEMA 3: ALERTA (Rojo y Negro) ---------------- */
+        .theme-alert {
+            --bg-body: #1F0000;
+            --bg-primary: #330000;
+            --bg-secondary: #4B0000;
+            --bg-code: #200000;
+            --text-body: #FEE2E2; /* Red-100 */
+            --text-secondary: #FCA5A5; /* Red-300 */
+            --color-accent: #DC2626; /* Red-600 */
+            --color-highlight: #EF4444; /* Red-500 */
+            --color-danger: #FDE047; /* Yellow for errors */
+        }
+        
+        /* Mapeo de variables Tailwind con Variables CSS */
+        .bg-gray-900 { background-color: var(--bg-body); }
+        .bg-gray-800 { background-color: var(--bg-primary); }
+        .bg-gray-700 { background-color: var(--bg-secondary); }
+        .text-gray-100 { color: var(--text-body); }
+        .text-gray-300 { color: var(--text-secondary); }
+        .bg-blue-700 { background-color: var(--color-accent); }
+        .bg-blue-600 { background-color: var(--color-accent); }
+        .hover\:bg-blue-700:hover { background-color: var(--color-accent); }
+        .bg-blue-500 { background-color: var(--color-highlight); }
+        .hover\:bg-blue-600:hover { background-color: var(--color-highlight); }
+        .bg-rose-500 { background-color: var(--color-danger); }
+        .hover\:bg-rose-600:hover { background-color: var(--color-danger); }
+
         /* Estilo para el menú desplegable */
         .dropdown:hover .dropdown-menu {
             display: block;
         }
-        /* Añadido para el estilo de respuesta Markdown (prose) */
+        /* Ajuste para el estilo de respuesta Markdown (prose) */
         .prose :where(code):not(:where([class~="not-prose"] *)) {
             padding: 0.2em 0.4em;
             border-radius: 0.3em;
-            background-color: #374151; /* gray-700 */
-            color: #D1D5DB; /* gray-300 */
-        }
-        /* Estilo para listas y encabezados dentro del prose */
-        .prose ul, .prose ol {
-            padding-left: 1.5em;
+            background-color: var(--bg-secondary);
+            color: var(--text-body);
         }
     </style>
     <script type="module">
@@ -55,17 +116,22 @@ const ADMINS_PATH = `${DB_ROOT}/admins`;
         const LOGS_PATH = `${DB_ROOT}/logs`;
         const NOTIFICATIONS_PATH = `${DB_ROOT}/notifications`;
 // ************************************************************
-        // ********* FUNCIÓN DE MANEJO DE TEMAS (ELIMINADA) *******
+        // ********* FUNCIÓN DE MANEJO DE TEMAS (MODIFICADA) *******
         // ************************************************************
         const initializeTheme = () => {
-             // Ya no hace nada, se eliminó la lógica de dark mode.
-};
-        const applyTailwindClasses = (isDark) => {
-             // Ya no hace nada.
-};
+             const savedTheme = localStorage.getItem('theme') || 'default';
+             setTheme(savedTheme);
+        };
         
-        const toggleDarkMode = () => {
-             // Ya no hace nada.
+        const setTheme = (themeName) => {
+             const body = document.body;
+             // Remover todas las clases de tema existentes
+             body.classList.remove('theme-hacker', 'theme-light', 'theme-alert');
+
+             if (themeName !== 'default') {
+                body.classList.add(`theme-${themeName}`);
+             }
+             localStorage.setItem('theme', themeName);
         };
         // ************************************************************
 
@@ -383,7 +449,7 @@ No incluyas comentarios o texto adicional. Descripción: "${description}".`;
 
         if (responseText.toUpperCase() === 'NO:SQL') {
              resultsDiv.innerHTML = `<p class="mt-4 text-center p-3 rounded-lg font-medium bg-rose-200 text-rose-800">
-                ⚠️ Te recuerdo que este sitio está diseñado para temas relacionados con generacion de consultas **SQL**. Este tipo de consultas no pueden ser resueltas aquí.
+                ⚠️ Te recuerdo que este sitio está diseñado para temas relacionados con **SQL y programación**. Este tipo de consultas no pueden ser resueltas aquí.
             </p>`;
              return;
         }
@@ -946,7 +1012,12 @@ document.getElementById('adminLoginModal').classList.remove('flex');
              document.getElementById('logoutButton').addEventListener('click', logout);
             document.getElementById('showAdminManagementButton').addEventListener('click', showAdminManagement);
             document.getElementById('closeAdminModalButton').addEventListener('click', closeAdminModal);
-            // document.getElementById('darkModeToggle').addEventListener('change', toggleDarkMode); <-- REMOVED
+            
+            // Listeners para el cambio de tema
+            document.getElementById('theme-default').addEventListener('click', () => setTheme('default'));
+            document.getElementById('theme-hacker').addEventListener('click', () => setTheme('hacker'));
+            document.getElementById('theme-light').addEventListener('click', () => setTheme('light'));
+            document.getElementById('theme-alert').addEventListener('click', () => setTheme('alert'));
 
             document.getElementById('loginForm').addEventListener('submit', login);
             document.getElementById('addFunctionForm').addEventListener('submit', addOrUpdateFunction);
@@ -980,8 +1051,19 @@ document.getElementById('validationMessage').innerHTML = '';
             
             <div class="flex items-center space-x-4">
                 
-     
-      
+                <div class="dropdown inline-block relative">
+                    <button class="bg-blue-600 text-white font-semibold py-2 px-4 rounded inline-flex items-center hover:bg-blue-700 transition duration-200">
+                        <span class="mr-1">Temas</span>
+                        <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                    </button>
+                    <ul class="dropdown-menu absolute hidden text-gray-100 pt-1 left-0 z-20 w-48 shadow-xl border border-gray-600 bg-gray-800 rounded-lg overflow-hidden transition-colors duration-300">
+                        <li><a id="theme-default" class="hover:bg-blue-700 py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Principal (Azul)</a></li>
+                        <li><a id="theme-hacker" class="hover:bg-green-700 py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Hacker (Verde)</a></li>
+                        <li><a id="theme-light" class="hover:bg-gray-300 hover:text-gray-800 text-gray-800 bg-white py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Clásico (Blanco)</a></li>
+                        <li><a id="theme-alert" class="hover:bg-red-700 py-2 px-4 block whitespace-no-wrap cursor-pointer text-sm">Alerta (Rojo)</a></li>
+                    </ul>
+                </div>
+
                 <div class="dropdown inline-block relative">
                     <button class="bg-blue-600 text-white font-semibold py-2 px-4 rounded inline-flex items-center hover:bg-blue-700 transition duration-200">
                         <span class="mr-1">Admin</span>
