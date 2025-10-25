@@ -808,7 +808,6 @@ const runSQLQuery = async (description, isContextual) => {
         // --- LÓGICA DE DETECCIÓN DE PREGUNTA CONCEPTUAL EN MODO CONTEXTUAL (REPARADA) ---
         
         // Criterio de detección de pregunta conceptual O DE RESUMEN de datos
-        // Si el usuario pregunta por "quiénes", "qué tablas", "si tienen", etc., forzamos la respuesta de texto.
         const requiresTextualExplanation = lowerDescription.includes('tablas') || lowerDescription.includes('columnas') || lowerDescription.includes('estructura') || lowerDescription.includes('esquema') || lowerDescription.includes('quiénes son') || lowerDescription.includes('dime quiénes') || lowerDescription.includes('muéstrame quiénes') || lowerDescription.includes('si tienen') || lowerDescription.includes('qué hay') || lowerDescription.includes('dime quién') || lowerDescription.includes('explícame') || lowerDescription.includes('dime la información');
 
         // Si el usuario pide explícitamente código SQL, lo sobreescribimos
@@ -1166,34 +1165,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('funcSyntax').addEventListener('input', resetValidation);
 
     // ************ MANEJO DE TECLA ENTER (TEXTAREA) ************
-    // Consulta Específica
-    document.getElementById('specificQueryInput').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { // Detecta ENTER sin SHIFT
-            e.preventDefault(); // Evita el salto de línea
-            document.getElementById('queryFormSpecific').dispatchEvent(new Event('submit'));
-        }
-    });
-    // Generar Código SQL
-    document.getElementById('descriptionSearch').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { 
-            e.preventDefault();
-            document.getElementById('queryFormDefault').dispatchEvent(new Event('submit'));
-        }
-    });
-    // Consulta General
-    document.getElementById('generalQueryInput').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { 
-            e.preventDefault();
-            document.getElementById('queryFormGeneral').dispatchEvent(new Event('submit'));
-        }
-    });
-    // Corregir Sintaxis
-    document.getElementById('errorInput').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { 
-            e.preventDefault();
-            document.getElementById('queryFormFix').dispatchEvent(new Event('submit'));
-        }
-    });
+    const setupEnterKeyForTextarea = (textareaId, formId) => {
+        document.getElementById(textareaId).addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { // Detecta ENTER sin SHIFT
+                e.preventDefault(); // Evita el salto de línea
+                document.getElementById(formId).dispatchEvent(new Event('submit'));
+            }
+        });
+    };
+
+    setupEnterKeyForTextarea('specificQueryInput', 'queryFormSpecific');
+    setupEnterKeyForTextarea('descriptionSearch', 'queryFormDefault');
+    setupEnterKeyForTextarea('generalQueryInput', 'queryFormGeneral');
+    setupEnterKeyForTextarea('errorInput', 'queryFormFix');
     // **********************************************************
 
 
